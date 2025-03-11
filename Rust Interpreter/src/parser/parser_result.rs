@@ -1,9 +1,9 @@
 use super::ParserSource;
-
+#[derive(Debug)]
 pub struct ParserData {
     pub source: ParserSource,
 }
-
+#[derive(Debug)]
 pub struct ParserStep {
     pub pos: usize,
     pub action: ParserAction,
@@ -15,6 +15,7 @@ impl ParserStep {
     }
 }
 
+#[derive(Debug)]
 pub enum ParserAction {
     Move {
         child: &'static str,

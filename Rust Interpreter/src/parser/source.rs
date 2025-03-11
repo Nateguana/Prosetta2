@@ -185,8 +185,8 @@ impl<'a> MutParserSourceIter<'a> {
                 paragraph.push_str(line);
             }
             last_empty = is_empty;
-            // if buf[slice] == b'\n' {
             start = index + 1;
+            // if buf[slice] == b'\n' {
             //     paragraph
             // }
             // if is empty line add to paragraph

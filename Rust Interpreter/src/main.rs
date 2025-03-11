@@ -1,9 +1,8 @@
 #![cfg(not(feature = "wasm"))]
 
-use std::{
-    io::{self, Read},
-    mem,
-};
+use std::mem;
+
+use parser::{ParserAction, ParserSource};
 
 use crate::parser::Parser;
 
@@ -72,13 +71,29 @@ fn main() {
     // }
     println!("size of parser: {}", mem::size_of::<Parser>());
 
-    let mut args: Vec<String> = std::env::args().skip(1).collect();
+    // let mut args: Vec<String> = std::env::args().skip(1).collect();
 
-    for e in &mut args {
-        e.make_ascii_lowercase();
+    // for e in &mut args {
+    //     e.make_ascii_lowercase();
+    // }
+
+    //args.sort();
+
+    let source = ParserSource::from_stdin();
+
+    let parser = Parser::new(source);
+
+    let mut last_step = None;
+    for step in parser {
+        println!("{:?}", step);
+        last_step = Some(step);
     }
 
-    args.sort();
+    let ParserAction::Finished { data } = last_step.unwrap().action else {
+        unreachable!()
+    };
+
+    println!("{:?}", data);
 
     // let parser_flags = ParserFlags {
     //     title: !cfg!(feature = "no-title"), //args.binary_search(&"not".to_string()).is_ok(),
@@ -99,7 +114,7 @@ fn main() {
     //     ParserSource::from_stdin(), //ParserSource::from_string(MILO_POEM_2[0].to_vec())
     // );
 
-    let _ = io::stdin().read(&mut [0u8]).unwrap();
+    // let _ = io::stdin().read(&mut [0u8]).unwrap();
 }
 
 // #[allow(dead_code)]

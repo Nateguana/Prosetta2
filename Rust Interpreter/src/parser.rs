@@ -3,7 +3,7 @@
 use context::Context;
 use genawaiter::sync::{Co, GenBoxed};
 
-use parser_result::{ParserAction, ParserData, ParserStep};
+pub(crate) use parser_result::{ParserAction, ParserData, ParserStep};
 // use alias::WordTriggerArena;
 // use bstr::ByteSlice;
 mod close_data;
@@ -21,6 +21,7 @@ use commands::{none::Base, title::Title, Command};
 use slice::Slice;
 pub use source::ParserSource;
 
+use streaming_iterator::StreamingIterator;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -51,12 +52,13 @@ impl Parser {
             is_generator_done: false,
         }
     }
-    pub async fn start(co: Co<ParserStep>, source: ParserSource) -> ParserStep {
+    pub async fn start(co: Co<ParserStep>, mut source: ParserSource) -> ParserStep {
         let context = Context::new(co);
         let base = Base::new();
 
         let has_title = false;
-        let mut iter = source.get_iter();
+        let mut iter = source.get_mut_iter();
+
         while let Some(paragraph) = iter.next() {
             let slice = Slice::new(paragraph);
             if !has_title {
@@ -64,6 +66,7 @@ impl Parser {
                 context.step_spec_child(&base, &mut title, slice).await;
             }
         }
+
         let finish_action = ParserAction::Finished {
             data: Box::new(ParserData { source }),
         };
