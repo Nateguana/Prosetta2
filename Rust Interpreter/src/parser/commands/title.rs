@@ -1,3 +1,8 @@
+use std::{
+    io::Read,
+    mem::{self},
+};
+
 use bstr::{ByteSlice, ByteVec};
 
 use super::{close_data, CloseData, Command, Context, FailReason, Import, ReturnType, Slice};
@@ -48,28 +53,64 @@ impl Title {
             co.step_move(self, rest.pos).await;
 
             // no more text
-            if rest.len() > 0 {
+            if rest.len() == 0 {
                 return rest;
             }
 
             // find "by"
-            if let Some((word, rest2)) = rest.get_next_word_arg() {
-                if word.str.to_ascii_lowercase() == b"by" {
-                    return rest2;
-                }
+            let (word, rest2) = rest.get_next_word_arg();
+
+            if word.str == b"by" {
+                self.by_start = word.pos;
+                return rest2;
             }
 
             curr_slice = rest;
         }
     }
 
-    async fn parse_authors(&mut self, _co: &Context, _slice: Slice<'_>) {
-        // let mut parsed_first = false;
-        // let mut curr_slice = slice;
-        // loop {
-        //     let (title, rest) = curr_slice.get_next_slice();
-        //     co.step_move(&self, pos).await;
-        // }
+    async fn parse_authors(&mut self, co: &Context, slice: Slice<'_>) {
+        let mut parsed_first = false;
+        let mut curr_slice = slice;
+        let mut sep: &[u8] = b"";
+        let mut author_data = AuthorData {
+            name: Vec::new(),
+            pos: slice.pos,
+            length: 0,
+        };
+        while curr_slice.len() > 0 {
+            let slice;
+            (slice, curr_slice) = curr_slice.get_next_slice();
+            co.step_move(self, slice.pos).await;
+            // if is separator
+            if Self::is_separator(slice.str).close_count > 0 {
+                if author_data.name.len() > 0 {
+                    sep = b"";
+                    parsed_first = true;
+                    self.authors.push(mem::replace(
+                        &mut author_data,
+                        AuthorData {
+                            name: Vec::new(),
+                            pos: slice.pos,
+                            length: 0,
+                        },
+                    ));
+                }
+            //author name
+            } else {
+                author_data.name.push_str(sep);
+                author_data.name.push_str(slice.str);
+                author_data.length = slice.end() - author_data.pos;
+                sep = b" ";
+                if parsed_first {
+                    //find_imports()
+                }
+            }
+        }
+        // add last author
+        if author_data.name.len() > 0 {
+            self.authors.push(author_data);
+        }
     }
 
     fn is_separator(str: &[u8]) -> CloseData {

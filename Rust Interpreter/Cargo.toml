@@ -28,6 +28,7 @@ bitflags = "2.6.0"
 genawaiter = "0.99.1"
 async-trait = "0.1.87"
 streaming-iterator = "0.1.9"
+parking_lot = "0.12.3"
 
 [dev-dependencies]
 ntest = "0.9.3"

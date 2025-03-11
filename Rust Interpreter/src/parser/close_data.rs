@@ -1,16 +1,16 @@
 use super::slice::Slice;
 
 ///the chars that are counted as being part of words
-const OTHER_CHARS: &[u8] = b"-+^/'";
+const OTHER_CHARS: &[u8] = b"-'";
 ///can the char be part of a word
-fn is_valid_word_char(char: u8) -> bool {
+pub fn is_valid_word_char(char: u8) -> bool {
     char.is_ascii_alphanumeric() || OTHER_CHARS.contains(&char)
 }
 
 ///chars that close functions
 const END_CHARS: &[u8] = b".?!,:";
 ///can the char close a command
-fn is_valid_close_char(char: u8) -> bool {
+pub fn is_valid_close_char(char: u8) -> bool {
     END_CHARS.contains(&char)
 }
 
@@ -22,13 +22,13 @@ pub fn is_non_close_but_still_single(char: u8) -> bool {
 }
 
 /// does slice consist of a closing character
-pub fn is_close(slice: &Slice) -> bool {
+pub fn is_close(slice: Slice) -> bool {
     // does str close something
     get_close_data(slice.str).close_length != 0
 }
 
 /// For when a close is forced rather than able.
-pub fn is_mandatory_close(slice: &Slice) -> bool {
+pub fn is_mandatory_close(slice: Slice) -> bool {
     let cd = get_close_data(slice.str);
     cd.close_length != 0 && !cd.only_forced
 }
@@ -39,11 +39,11 @@ pub struct CloseData {
     pub only_forced: bool,
 }
 
-fn is_word_stopper(line: &[u8]) -> bool {
+pub fn is_word_stopper(line: &[u8]) -> bool {
     line.len() >= 2 && &line[..2] == b"--"
 }
 
-/// gets the number of times the characters at line[index] should be repeated and the offset after
+/// gets the number of times the characters at line\[index\] should be repeated and the offset after
 /// returns (repeat_count,offset)
 pub fn get_close_data(line: &[u8]) -> CloseData {
     if line.len() >= 3 && &line[..3] == b"..." {
@@ -94,47 +94,6 @@ pub fn get_close_data(line: &[u8]) -> CloseData {
             only_forced: false,
         }
     }
-}
-
-///gets the next slice. a slice consists of either a word or a closing character
-pub fn get_next_slice<'a>(slice: &Slice<'a>, mut start: usize) -> (Slice<'a>, Slice<'a>) {
-    // find start of word
-    start = start.min(slice.len());
-    while start < slice.len()
-        && !is_valid_word_char(slice.str[start])
-        && !is_valid_close_char(slice.str[start])
-        && !is_non_close_but_still_single(slice.str[start])
-    {
-        start += 1;
-    }
-
-    // find end of word
-    let mut end = start;
-
-    let close_data = get_close_data(&slice.str[start..]);
-    if close_data.close_length != 0 {
-        end += close_data.close_length as usize;
-    } else if end < slice.len() && is_non_close_but_still_single(slice.str[start]) {
-        end += 1;
-    } else {
-        while end < slice.len()
-            && is_valid_word_char(slice.str[end])
-            && !is_word_stopper(&slice.str[end..])
-        {
-            end += 1;
-        }
-    }
-
-    (
-        Slice {
-            str: &slice.str[start..end],
-            pos: slice.pos + start,
-        },
-        Slice {
-            str: &slice.str[end..],
-            pos: slice.pos + end,
-        },
-    )
 }
 
 /// returns the rest after the end of the word

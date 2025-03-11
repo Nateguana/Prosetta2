@@ -52,6 +52,7 @@ impl Parser {
             is_generator_done: false,
         }
     }
+
     pub async fn start(co: Co<ParserStep>, mut source: ParserSource) -> ParserStep {
         let context = Context::new(co);
         let base = Base::new();
@@ -60,7 +61,7 @@ impl Parser {
         let mut iter = source.get_mut_iter();
 
         while let Some(paragraph) = iter.next() {
-            let slice = Slice::new(paragraph);
+            let slice = Slice::new(&*paragraph);
             if !has_title {
                 let mut title = Box::new(Title::new()) as Box<dyn Command>;
                 context.step_spec_child(&base, &mut title, slice).await;
