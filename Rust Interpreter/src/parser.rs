@@ -21,7 +21,6 @@ use commands::{none::Base, title::Title, Command};
 use slice::Slice;
 pub use source::ParserSource;
 
-use streaming_iterator::StreamingIterator;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -58,9 +57,9 @@ impl Parser {
         let base = Base::new();
 
         let has_title = false;
-        let mut iter = source.get_mut_iter();
+        // let mut iter = source.get_mut_iter();
 
-        while let Some(paragraph) = iter.next() {
+        for paragraph in source.get_mut_iter() {
             let slice = Slice::new(&*paragraph);
             if !has_title {
                 let mut title = Box::new(Title::new()) as Box<dyn Command>;

@@ -1,14 +1,15 @@
 use std::{
+    cell::{Ref, RefCell},
     collections::VecDeque,
     fmt::Debug,
     io::{stdin, BufRead},
     mem,
-    ops::Deref,
+    // ops::Deref,
 };
 
 use bstr::{ByteSlice, ByteVec};
 use itertools::Itertools;
-use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard};
+// use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard};
 // use streaming_iterator::StreamingIterator;
 
 // pub type ParserSourceIter<'a> = Flatten<std::vec::IntoIter<Box<dyn Iterator<Item = &'a u8> + 'a>>>;
@@ -29,14 +30,14 @@ enum Source {
 #[derive(Debug)]
 pub struct ParserSource {
     sources: VecDeque<Source>,
-    paragraphs: RwLock<Vec<Vec<u8>>>,
+    paragraphs: RefCell<Vec<Vec<u8>>>,
 }
 
 impl ParserSource {
     pub fn new() -> Self {
         Self {
             sources: VecDeque::new(),
-            paragraphs: RwLock::new(Vec::new()),
+            paragraphs: RefCell::new(Vec::new()),
         }
     }
     pub fn from_stdin() -> Self {
@@ -78,11 +79,38 @@ pub struct MutParserSourceIter<'a> {
     paragraph_index: usize,
 }
 
-impl<'a> MutParserSourceIter<'a> {
-    // type Item = MappedRwLockReadGuard<'a, [u8]>;
+impl<'a> Iterator for MutParserSourceIter<'a> {
+    type Item = Vec<u8>;
 
-    fn advance(&mut self) {
-        if self.paragraph_index >= self.source.paragraphs.read().len() {
+    // fn advance(&mut self) {
+    //     if self.paragraph_index >= self.source.paragraphs.borrow().len() {
+    //         match self.source.sources.pop_front() {
+    //             Some(source) => match source {
+    //                 Source::Stdin => self.get_from_stdin(),
+    //                 Source::File => todo!(),
+    //                 Source::String(str) => self.get_from_string(str),
+    //             },
+    //             None => {}
+    //         }
+    //     }
+    //     self.paragraph_index += 1;
+    // }
+
+    // fn get<'b>(&'b self) -> Option<impl Deref<Target = [u8]> + Send + 'b> {
+    //     let par_ref = self.source.paragraphs.borrow();
+    //     let par_ref2 = Ref::map(par_ref, |par| {
+    //         par.get(self.paragraph_index - 1)
+    //             .map_or(&[] as &[u8], |par| &**par)
+    //     });
+    //     par_ref2.is_empty().then(|| par_ref2)
+    // }
+
+    // fn get_paragraph<'b>(&'b mut self, par: &'b Vec<Vec<u8>>, index: usize) -> Option<&'b [u8]> {
+    //     par.get(index - 1).map(|e| &**e)
+    // }
+
+    fn next<'b>(&'b mut self) -> Option<Self::Item> {
+        if self.paragraph_index >= self.source.paragraphs.borrow().len() {
             match self.source.sources.pop_front() {
                 Some(source) => match source {
                     Source::Stdin => self.get_from_stdin(),
@@ -93,24 +121,11 @@ impl<'a> MutParserSourceIter<'a> {
             }
         }
         self.paragraph_index += 1;
-    }
-
-    fn get<'b>(&'b self) -> Option<impl Deref<Target = [u8]> + 'b> {
-        let par_ref = self.source.paragraphs.read();
-        let par_ref2 = RwLockReadGuard::map(par_ref, |par| {
-            par.get(self.paragraph_index - 1)
-                .map_or(&[] as &[u8], |par| &**par)
-        });
-        par_ref2.is_empty().then(|| par_ref2)
-    }
-
-    // fn get_paragraph<'b>(&'b mut self, par: &'b Vec<Vec<u8>>, index: usize) -> Option<&'b [u8]> {
-    //     par.get(index - 1).map(|e| &**e)
-    // }
-
-    pub fn next<'b>(&'b mut self) -> Option<impl Deref<Target = [u8]> + 'b> {
-        self.advance();
-        self.get()
+        self.source
+            .paragraphs
+            .borrow()
+            .get(self.paragraph_index - 1)
+            .cloned()
 
         // let par_ref = self.source.paragraphs.read();
         // let par_ref2 = RwLockReadGuard::map(par_ref, |par| {
@@ -144,7 +159,7 @@ impl<'a> MutParserSourceIter<'a> {
             if has_failed || new_input.trim().len() == 0 {
                 self.source
                     .paragraphs
-                    .write()
+                    .borrow_mut()
                     .push(mem::take(&mut paragraph));
                 return;
             }
@@ -176,11 +191,11 @@ impl<'a> MutParserSourceIter<'a> {
 }
 
 impl<'a> Iterator for ParserSourceIter<'a> {
-    type Item = MappedRwLockReadGuard<'a, [u8]>;
+    type Item = Ref<'a, [u8]>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let par_ref = self.source.paragraphs.read();
-        let par_ref2 = RwLockReadGuard::map(par_ref, |par| {
+        let par_ref = self.source.paragraphs.borrow();
+        let par_ref2 = Ref::map(par_ref, |par| {
             par.get(self.paragraph_index - 1)
                 .map_or(&[] as &[u8], |par| &**par)
         });
