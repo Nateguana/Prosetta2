@@ -68,12 +68,12 @@ impl<'a> Slice<'a> {
     ) -> (Slice<'a>, Slice<'a>) {
         let mut start = 0;
         let mut end = self.str.len();
-        while dbg!(start) < self.len() && !(find_pred)(&self.str[start..]) {
+        while start < self.len() && !(find_pred)(&self.str[start..]) {
             start += 1;
         }
         if let Some(pred) = end_pred {
             end = start + 1;
-            while dbg!(end) < self.len() && (pred)(&self.str[end..]) {
+            while end < self.len() && (pred)(&self.str[end..]) {
                 end += 1;
             }
         }
