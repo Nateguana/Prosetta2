@@ -1,16 +1,41 @@
-#[derive(PartialEq, Debug, Clone)]
+use super::ParserSource;
+
+pub struct ParserData {
+    pub source: ParserSource,
+}
 
 pub struct ParserStep {
     pub pos: usize,
-    pub parent: &'static str,
     pub action: ParserAction,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+impl ParserStep {
+    pub fn new(action: ParserAction, pos: usize) -> Self {
+        Self { pos, action }
+    }
+}
+
 pub enum ParserAction {
-    Move,
-    Child(&'static str),
-    Matched(&'static str),
-    Failed(&'static str),
-    Finished,
+    Move {
+        child: &'static str,
+    },
+    StartParagraph {
+        index: usize,
+        child: &'static str,
+    },
+    Child {
+        child: &'static str,
+        parent: &'static str,
+    },
+    Matched {
+        child: &'static str,
+        parent: &'static str,
+    },
+    Failed {
+        child: &'static str,
+        parent: &'static str,
+    },
+    Finished {
+        data: Box<ParserData>,
+    },
 }
