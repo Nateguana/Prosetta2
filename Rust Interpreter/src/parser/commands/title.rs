@@ -78,7 +78,7 @@ impl Title {
         while curr_slice.len() > 0 {
             let slice;
             (slice, curr_slice) = curr_slice.get_next_slice();
-            co.step_move(self, dbg!(slice).pos).await;
+            co.step_move(self, slice.pos).await;
             // if is separator
             if Self::is_separator(slice.str).close_count > 0 {
                 if author_data.name.len() > 0 {

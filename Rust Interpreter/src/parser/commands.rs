@@ -7,6 +7,8 @@ use super::{
     context::Context,
     fail_reason::FailReason,
     imports::Import,
+    javascript_writer::JavascriptWriter,
+    lisp_like_writer::LispWriter,
     slice::Slice,
     types::ReturnType,
 };
@@ -14,7 +16,7 @@ use super::{
 pub type AliasName = [u8; 3];
 
 #[async_trait::async_trait]
-pub trait Command: Sync + Send {
+pub trait Command: Sync + Send + JavascriptWriter + LispWriter {
     fn new() -> Self
     where
         Self: Sized;

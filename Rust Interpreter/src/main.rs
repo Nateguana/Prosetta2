@@ -2,7 +2,8 @@
 
 use std::mem;
 
-use parser::{ParserAction, ParserSource};
+use itertools::Itertools;
+use parser::{javascript_writer::{self, JavascriptWriter}, lisp_like_writer::{self, LispWriter}, ParserAction, ParserSource};
 
 use crate::parser::Parser;
 
@@ -81,19 +82,24 @@ fn main() {
 
     let source = ParserSource::from_stdin();
 
-    let parser = Parser::new(source);
+    let mut parser = Parser::new(source);
 
-    let mut last_step = None;
-    for step in parser {
+    // let mut last_step = None;
+    while let Some(step) = parser.next() {
         println!("{:?}", step);
-        last_step = Some(step);
+        for paragraph in parser.source_iter() {
+            println!("{:?}", paragraph);
+        }
+        println!("{}", javascript_writer::write_all(parser.tree()));
+        println!("{}", lisp_like_writer::write_all(parser.tree()));
+        // last_step = Some(step);
     }
 
-    let ParserAction::Finished { data } = last_step.unwrap().action else {
-        unreachable!()
-    };
+    // let ParserAction::Finished { data } = last_step.unwrap().action else {
+    //     unreachable!()
+    // };
 
-    println!("{:?}", data);
+    // println!("{:?}", data);
 
     // let parser_flags = ParserFlags {
     //     title: !cfg!(feature = "no-title"), //args.binary_search(&"not".to_string()).is_ok(),

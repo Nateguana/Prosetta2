@@ -1,12 +1,9 @@
+use super::{commands::title::Title, JavascriptWriter};
 use itertools::Itertools;
 use std::str;
 
-use super::commands::title::Title;
-
-use super::JavascriptWriter;
-
 impl JavascriptWriter for Title {
-    fn write(&self) -> String {
+    fn write_javascript(&self) -> String {
         let title_str = str::from_utf8(&self.title).unwrap();
         let mut authors = self
             .authors

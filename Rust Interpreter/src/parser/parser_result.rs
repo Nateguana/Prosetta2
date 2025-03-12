@@ -1,7 +1,6 @@
-use super::ParserSource;
 #[derive(Debug)]
 pub struct ParserData {
-    pub source: ParserSource,
+    // pub source: ParserSource,
 }
 #[derive(Debug)]
 pub struct ParserStep {

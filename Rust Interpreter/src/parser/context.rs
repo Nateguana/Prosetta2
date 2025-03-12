@@ -27,7 +27,7 @@ impl Context {
     }
     pub async fn step_spec_child(
         &self,
-        this: &dyn Command,
+        this: &'static str,
         child: &mut Box<dyn Command>,
         slice: Slice<'_>,
     ) -> Option<(usize, ReturnType)> {
@@ -48,24 +48,24 @@ impl Context {
         slice: Slice<'_>,
     ) -> Option<(usize, ReturnType)> {
         *spot = Box::new(T::new());
-        self.step_spec_child(this, spot, slice).await
+        self.step_spec_child(this.name(), spot, slice).await
     }
-    pub async fn step_match(&self, this: &dyn Command, child: &dyn Command, pos: usize) {
+    pub async fn step_match(&self, this: &'static str, child: &dyn Command, pos: usize) {
         self.co
             .yield_(ParserStep::new(
                 ParserAction::Matched {
-                    parent: this.name(),
+                    parent: this,
                     child: child.name(),
                 },
                 pos,
             ))
             .await;
     }
-    pub async fn step_fail(&self, this: &dyn Command, child: &dyn Command, pos: usize) {
+    pub async fn step_fail(&self, this: &'static str, child: &dyn Command, pos: usize) {
         self.co
             .yield_(ParserStep::new(
                 ParserAction::Failed {
-                    parent: this.name(),
+                    parent: this,
                     child: child.name(),
                 },
                 pos,

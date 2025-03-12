@@ -25,24 +25,24 @@ impl Command for None {
 }
 pub struct Base;
 
-#[async_trait::async_trait]
-impl Command for Base {
-    fn new() -> Self {
-        Base
-    }
-    async fn try_parse(
-        &mut self,
-        _co: &Context,
-        _slice: Slice<'_>,
-    ) -> Result<(usize, ReturnType), FailReason> {
-        unreachable!()
-    }
+// #[async_trait::async_trait]
+// impl Command for Base {
+//     fn new() -> Self {
+//         Base
+//     }
+//     async fn try_parse(
+//         &mut self,
+//         _co: &Context,
+//         _slice: Slice<'_>,
+//     ) -> Result<(usize, ReturnType), FailReason> {
+//         unreachable!()
+//     }
 
-    fn name(&self) -> &'static str {
-        "Base"
-    }
+//     fn name(&self) -> &'static str {
+//         "Base"
+//     }
 
-    fn is_none(&self) -> bool {
-        true
-    }
-}
+//     fn is_none(&self) -> bool {
+//         true
+//     }
+// }
