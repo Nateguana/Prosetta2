@@ -2,6 +2,8 @@ use std::mem::{self};
 
 use bstr::{ByteSlice, ByteVec};
 
+use crate::parser::comm_ptr::CommPtr;
+
 use super::{close_data, CloseData, Command, Context, FailReason, Import, ReturnType, Slice};
 
 pub struct AuthorData {
@@ -133,15 +135,18 @@ impl Command for Title {
     fn new() -> Self {
         Default::default()
     }
+    
     async fn try_parse(
-        &mut self,
-        co: &Context,
-        slice: Slice<'_>,
-    ) -> Result<(usize, ReturnType), FailReason> {
-        let curr_slice = self.find_title(co, slice).await;
-        self.parse_authors(co, curr_slice).await;
-        Ok((slice.end(), ReturnType::Null))
+        self: CommPtr<'_, Self>,
+        _co: &Context,
+        _slice: Slice<'_>,
+    ) -> Result<(usize, ReturnType), FailReason>
+    where
+        Self: Sized,
+    {
+
     }
+
     fn name(&self) -> &'static str {
         "Title"
     }

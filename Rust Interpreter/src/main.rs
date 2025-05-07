@@ -1,4 +1,5 @@
 #![cfg(not(feature = "wasm"))]
+#![feature(arbitrary_self_types)]
 
 use std::mem;
 

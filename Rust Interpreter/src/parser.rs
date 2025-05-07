@@ -15,12 +15,14 @@ mod context;
 mod fail_reason;
 mod imports;
 mod parser_result;
+mod command_arena;
 mod slice;
 mod source;
 mod types;
 
 pub(crate) mod javascript_writer;
 pub(crate) mod lisp_like_writer;
+mod comm_ptr;
 
 use commands::{title::Title, Command};
 use slice::Slice;

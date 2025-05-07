@@ -1,3 +1,5 @@
+use crate::parser::comm_ptr::CommPtr;
+
 use super::{Command, Context, FailReason, ReturnType, Slice};
 
 pub struct None;
@@ -7,11 +9,15 @@ impl Command for None {
     fn new() -> Self {
         None
     }
+
     async fn try_parse(
-        &mut self,
+        self: CommPtr<'_, Self>,
         _co: &Context,
         _slice: Slice<'_>,
-    ) -> Result<(usize, ReturnType), FailReason> {
+    ) -> Result<(usize, ReturnType), FailReason>
+    where
+        Self: Sized,
+    {
         unreachable!()
     }
 
