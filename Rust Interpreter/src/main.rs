@@ -1,8 +1,10 @@
 #![cfg(not(feature = "wasm"))]
 
-use std::mem;
+use std::{cell::RefCell, mem};
 
 use itertools::Itertools;
+use parking_lot::Mutex;
+// use parking_lot::lock_api::Mutex;
 use parser::{javascript_writer::{self, JavascriptWriter}, lisp_like_writer::{self, LispWriter}, ParserAction, ParserSource};
 
 use crate::parser::Parser;
@@ -79,6 +81,10 @@ fn main() {
     // }
 
     //args.sort();
+
+    let t = Mutex::new(1 as u64);
+
+    let k = mem::size_of::<Mutex<u64>>();
 
     let source = ParserSource::from_stdin();
 

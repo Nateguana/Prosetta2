@@ -43,7 +43,7 @@ pub enum ParagraphType {
 pub struct Parser {
     source: Arc<ParserSource>,
     generator: GenBoxed<ParserStep, (), ParserStep>,
-    tree: RwLock<Vec<Paragraph>>,
+    tree: Arc<Vec<Paragraph>>,
     is_generator_done: bool,
 }
 
@@ -51,7 +51,7 @@ impl Parser {
     ///make a new parser with a source and command flags
     pub fn new(source: ParserSource) -> Parser {
         let arc_source = Arc::new(source);
-        let lock_tree = RwLock::new(Vec::new());
+        let lock_tree = Arc::new(Vec::new());
         let generator = GenBoxed::new_boxed(|co| Parser::start(co, arc_source.clone(), lock_tree));
 
         Parser {
@@ -67,7 +67,7 @@ impl Parser {
         source: Arc<ParserSource>,
         tree: RwLock<Vec<Paragraph>>,
     ) -> ParserStep {
-        let context = Context::new(co);
+        let context = DebugContext::new(co);
 
         let has_title = false;
         // let mut iter = source.get_mut_iter();

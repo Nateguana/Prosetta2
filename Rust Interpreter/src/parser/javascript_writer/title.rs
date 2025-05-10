@@ -4,8 +4,9 @@ use std::str;
 
 impl JavascriptWriter for Title {
     fn write_javascript(&self) -> String {
-        let title_str = str::from_utf8(&self.title).unwrap();
-        let mut authors = self
+        let this = self.lock();
+        let title_str = str::from_utf8(&this.title).unwrap();
+        let mut authors = this
             .authors
             .iter()
             .map(|e| str::from_utf8(&e.name).unwrap());
@@ -29,7 +30,7 @@ impl JavascriptWriter for Title {
         };
 
         let imports_str = {
-            let mut imports = self.imports.iter().map(|e| e.name.name());
+            let mut imports = this.imports.iter().map(|e| e.name.name());
             match imports.len() {
                 0 => "".to_string(),
                 len => format!(
