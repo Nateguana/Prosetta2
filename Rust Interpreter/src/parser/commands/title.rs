@@ -37,19 +37,21 @@ pub struct Title {
 
 impl Title {
     ///add title data and returns slice after by
-    async fn find_title<'a>(&mut self, co: &Context, slice: Slice<'a>) -> Slice<'a> {
+    async fn find_title<'a>(self: CommPtr<'_, Self>, co: &Context, slice: Slice<'a>) -> Slice<'a> {
         let mut curr_slice = slice;
         let mut space: &[u8] = b"";
         loop {
             let (title, rest) = curr_slice.get_next_line();
 
             // add title
-            self.title.push_str(title.str.trim());
-            self.title.push_str(space);
-            self.title_length = rest.pos;
+            {
+                self.value().title.push_str(title.str.trim());
+                self.value().title.push_str(space);
+                self.value().title_length = rest.pos;
+            }
             space = b"\n";
 
-            co.step_move(self, rest.pos).await;
+            co.step_move(rest.pos).await;
 
             // no more text
             if rest.len() == 0 {
@@ -68,7 +70,7 @@ impl Title {
         }
     }
 
-    async fn parse_authors(&mut self, co: &Context, slice: Slice<'_>) {
+    async fn parse_authors(self: CommPtr<'_, Self>, co: &Context, slice: Slice<'_>) {
         let mut parsed_first = false;
         let mut curr_slice = slice;
         let mut sep: &[u8] = b"";
@@ -135,16 +137,18 @@ impl Command for Title {
     fn new() -> Self {
         Default::default()
     }
-    
+
     async fn try_parse(
         self: CommPtr<'_, Self>,
-        _co: &Context,
-        _slice: Slice<'_>,
+        co: &Context,
+        slice: Slice<'_>,
     ) -> Result<(usize, ReturnType), FailReason>
     where
         Self: Sized,
     {
-
+        let curr_slice = self.find_title(co, slice).await;
+        self.parse_authors(co, curr_slice).await;
+        Ok((slice.end(), ReturnType::Null))
     }
 
     fn name(&self) -> &'static str {

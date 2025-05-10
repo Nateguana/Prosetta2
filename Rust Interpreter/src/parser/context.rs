@@ -1,10 +1,7 @@
 use genawaiter::sync::Co;
 
 use super::{
-    commands::Command,
-    parser_result::{ParserAction, ParserStep},
-    slice::Slice,
-    types::ReturnType,
+    comm_ptr::CommPtr, commands::Command, parser_result::{ParserAction, ParserStep}, slice::Slice, types::ReturnType
 };
 
 pub type Spot = Box<dyn Command>;
@@ -17,10 +14,10 @@ impl Context {
     pub fn new(co: Co<ParserStep>) -> Self {
         Self { co }
     }
-    pub async fn step_move(&self, this: &dyn Command, pos: usize) {
+    pub async fn step_move(&self, this: CommPtr<'_, Self>, pos: usize) {
         self.co
             .yield_(ParserStep::new(
-                ParserAction::Move { child: this.name() },
+                ParserAction::Move { child: this.value().name() },
                 pos,
             ))
             .await;

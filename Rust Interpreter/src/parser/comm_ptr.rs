@@ -1,27 +1,55 @@
-use std::{any::Any, marker::PhantomData, ops::DerefMut};
+use std::{any::Any, marker::PhantomData, ops::DerefMut, sync::Arc};
 
-use parking_lot::{Mutex, MutexGuard};
+use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
 
 use super::commands::Command;
 
-pub struct CommPtr<'a, T> {
-    tree: &'a Mutex<Box<dyn Command>>,
+type Arena = Vec<Box<dyn Command + 'static>>;
+pub struct CommPtr<T> {
+    tree: Arc<Mutex<Arena>>,
     index: usize,
     _marker: PhantomData<T>,
 }
 
-impl<'a, T> core::ops::Receiver for CommPtr<'a, T> {
+impl<T> core::ops::Receiver for CommPtr<T> {
     type Target = T;
 }
 
-fn map_ptr<'a, T: 'static>(value: &'a mut Box<dyn Command + 'static>) -> &'a mut T {
-    let ret = (value.as_mut() as &mut dyn Any).downcast_mut::<T>();
-    ret.unwrap()
-}
+impl<T: 'static> CommPtr<T> {
+    pub fn value<'a: 'static, 'b>(&'b self) -> impl DerefMut<Target = T> + 'static {
+        // fn map_ptr<'b, T: 'static>(value: &'b mut Arena, index: usize) -> &'b mut T {
+        //     let ret = (value[self.index].as_mut() as &mut dyn Any).downcast_mut::<T>().unwrap()
+        //     ret.unwrap()
+        // }
+        // MutexGuard::map
+        // SAFETY: this code is take directly from MutexGuard::map. I needed a self reference that I couldn't pass
+        // let s = self.tree.lock();
+        // unsafe {
+        //     let raw = MutexGuard::mutex(&s);
+        //     let data = f(unsafe { &mut *s.mutex.data.get() });
+        //     mem::forget(s);
+        //     MappedMutexGuard {
+        //         raw,
+        //         data,
+        //         marker: PhantomData,
+        //     }
+        // }
+        // let
+        let index = self.index;
+        let map_fn: &dyn Fn(&'b mut Arena) -> &'b mut T = &|value| Self::map_ptr2(value);
+        let other_fn = Self::map_ptr;
 
-impl<'a, T: 'static> CommPtr<'a, T> {
-    pub fn value(&self) -> impl DerefMut<Target = T> + 'a {
-        let ret = MutexGuard::map(self.tree.lock(), map_ptr);
+        let ret = MutexGuard::map(self.tree.lock(), Self::map_ptr2);
         ret
+    }
+
+    fn map_ptr2<'a>(value: &'a mut Arena) -> &'a mut T {
+        let ret = (value[0].as_mut() as &mut dyn Any).downcast_mut::<T>();
+        ret.unwrap()
+    }
+
+    fn map_ptr<'a>(&self, value: &'a mut Arena) -> &'a mut T {
+        let ret = (value[self.index].as_mut() as &mut dyn Any).downcast_mut::<T>();
+        ret.unwrap()
     }
 }
