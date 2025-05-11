@@ -1,6 +1,10 @@
+use super::{commands::Paragraph, ParserSource};
+
 #[derive(Debug)]
 pub struct ParserData {
-    // pub source: ParserSource,
+    pub source: ParserSource,
+    pub tree: Vec<Box<dyn Paragraph>>,
+    
 }
 #[derive(Debug)]
 pub struct ParserStep {
@@ -35,7 +39,5 @@ pub enum ParserAction {
         child: &'static str,
         parent: &'static str,
     },
-    Finished {
-        data: Box<ParserData>,
-    },
+    Finished,
 }

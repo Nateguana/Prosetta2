@@ -96,8 +96,8 @@ fn main() {
         for paragraph in parser.source_iter() {
             println!("{:?}", paragraph);
         }
-        println!("{}", javascript_writer::write_all(parser.tree()));
-        println!("{}", lisp_like_writer::write_all(parser.tree()));
+        println!("{}", javascript_writer::write_all(&parser.tree()));
+        println!("{}", lisp_like_writer::write_all(&parser.tree()));
         // last_step = Some(step);
     }
 

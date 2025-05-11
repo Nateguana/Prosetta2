@@ -3,14 +3,14 @@ mod paragraph_type;
 mod title;
 use itertools::Itertools;
 
-use super::{commands, Paragraph, ParagraphType};
+use super::{commands, Paragraph};
 
 pub trait JavascriptWriter {
     fn write_javascript(&self) -> String;
 }
 
-pub fn write_all(tree: &Vec<Paragraph>) -> String {
+pub fn write_all(tree: &Vec<Box<dyn Paragraph>>) -> String {
     tree.into_iter()
-        .map(|par| par.data.write_javascript())
+        .map(|par| par.write_javascript())
         .join("\n\n")
 }

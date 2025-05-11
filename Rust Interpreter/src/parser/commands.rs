@@ -2,7 +2,7 @@ mod alias_finder;
 pub mod none;
 pub mod title;
 
-use std::any::Any;
+use std::{any::Any, fmt::Debug};
 
 use super::{
     close_data::{self, CloseData},
@@ -17,21 +17,24 @@ use super::{
 
 pub type AliasName = [u8; 3];
 
-#[async_trait::async_trait]
-pub trait Command: Sync + Send + JavascriptWriter + LispWriter + Any {
+pub trait Parseable: Sync + Send + Any + Debug {
     fn new() -> Self
     where
         Self: Sized;
+    fn name(&self) -> &'static str;
+    fn as_any(&self) -> &dyn Any;
+}
 
+#[async_trait::async_trait]
+pub trait Command: Parseable + JavascriptWriter + LispWriter {
     async fn try_parse(
-        &mut self,
+        &self,
         co: impl Context,
         slice: Slice<'_>,
     ) -> Result<(usize, ReturnType), FailReason>
     where
         Self: Sized;
 
-    fn name(&self) -> &'static str;
     fn is_none(&self) -> bool {
         false
     }
@@ -54,3 +57,5 @@ pub trait CommandData: Sync + Send + Any {
 //     /// returned to go to the parent state with a failure
 //     Failed(FailReason),
 // }
+#[async_trait::async_trait]
+pub trait Paragraph: Command {}

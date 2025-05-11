@@ -1,23 +1,26 @@
-use std::mem::{self};
+use std::{any::Any, mem::{self}};
 
 use bstr::{ByteSlice, ByteVec};
 use parking_lot::{Mutex, MutexGuard};
 
-use super::{close_data, CloseData, Command, Context, FailReason, Import, ReturnType, Slice};
+use super::{
+    close_data, CloseData, Command, Context, FailReason, Import, Paragraph, Parseable, ReturnType, Slice
+};
 
+#[derive(Debug)]
 pub struct AuthorData {
     pub name: Vec<u8>,
     pub pos: usize,
     pub length: usize,
 }
-
+#[derive(Debug)]
 pub struct ImportData {
     pub name: Import,
     pub pos: usize,
     pub length: u8,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct TitleData {
     /// the poem title
     pub title: Vec<u8>,
@@ -32,7 +35,7 @@ pub struct TitleData {
     pub by_start: usize,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Title {
     pub inner: Mutex<TitleData>,
 }
@@ -43,7 +46,7 @@ impl Title {
     }
 
     ///add title data and returns slice after by
-    async fn find_title<'a>(&self, co: impl Context, slice: Slice<'a>) -> Slice<'a> {
+    async fn find_title<'a>(&self, co: &impl Context, slice: Slice<'a>) -> Slice<'a> {
         let mut curr_slice = slice;
         let mut space: &[u8] = b"";
         loop {
@@ -56,7 +59,7 @@ impl Title {
                 this.title.push_str(space);
                 this.title_length = rest.pos;
             }
-            
+
             co.step_continue(self, rest.pos).await;
 
             space = b"\n";
@@ -77,7 +80,7 @@ impl Title {
         }
     }
 
-    async fn parse_authors(&mut self, co: impl Context, slice: Slice<'_>) {
+    async fn parse_authors(&self, co: &impl Context, slice: Slice<'_>) {
         let mut parsed_first = false;
         let mut curr_slice = slice;
         let mut sep: &[u8] = b"";
@@ -139,22 +142,33 @@ impl Title {
         }
     }
 }
-#[async_trait::async_trait]
-impl Command for Title {
+
+impl Parseable for Title {
     fn new() -> Self {
         Default::default()
     }
 
-    async fn try_parse(
-        &mut self,
-        co: impl Context,
-        slice: Slice<'_>,
-    ) -> Result<(usize, ReturnType), FailReason> {
-        let curr_slice = self.find_title(co, slice).await;
-        self.parse_authors(co, curr_slice).await;
-        Ok((slice.end(), ReturnType::Null))
-    }
     fn name(&self) -> &'static str {
         "Title"
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
+
+#[async_trait::async_trait]
+impl Command for Title {
+    async fn try_parse(
+        &self,
+        co: impl Context,
+        slice: Slice<'_>,
+    ) -> Result<(usize, ReturnType), FailReason> {
+        let curr_slice = self.find_title(&co, slice).await;
+        self.parse_authors(&co, curr_slice).await;
+        Ok((slice.end(), ReturnType::Null))
+    }
+
+}
+
+impl Paragraph for Title {}
