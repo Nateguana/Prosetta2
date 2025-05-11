@@ -2,10 +2,12 @@
 
 use std::{cell::RefCell, mem};
 
-use itertools::Itertools;
-use parking_lot::Mutex;
 // use parking_lot::lock_api::Mutex;
-use parser::{javascript_writer::{self, JavascriptWriter}, lisp_like_writer::{self, LispWriter}, ParserAction, ParserSource};
+use parser::{
+    javascript_writer::{self},
+    lisp_like_writer::{self},
+    ParserSource,
+};
 
 use crate::parser::Parser;
 
@@ -82,9 +84,9 @@ fn main() {
 
     //args.sort();
 
-    let t = Mutex::new(1 as u64);
+    // let t = Mutex::new(1 as u64);
 
-    let k = mem::size_of::<Mutex<u64>>();
+    // let k = mem::size_of::<Mutex<u64>>();
 
     let source = ParserSource::from_stdin();
 
@@ -93,7 +95,7 @@ fn main() {
     // let mut last_step = None;
     while let Some(step) = parser.next() {
         println!("{:?}", step);
-        for paragraph in parser.source_iter() {
+        for paragraph in parser.source_iter().iter() {
             println!("{:?}", paragraph);
         }
         println!("{}", javascript_writer::write_all(&parser.tree()));

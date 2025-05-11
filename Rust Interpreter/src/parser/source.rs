@@ -8,7 +8,8 @@ use std::{
 
 use bstr::{ByteSlice, ByteVec};
 use itertools::Itertools;
-use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard};
+// use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard};
+use super::rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 // use streaming_iterator::StreamingIterator;
 
 // pub type ParserSourceIter<'a> = Flatten<std::vec::IntoIter<Box<dyn Iterator<Item = &'a u8> + 'a>>>;
@@ -58,19 +59,19 @@ impl ParserSource {
         self
     }
 
-    pub fn get_mut_iter<'a>(&'a self) -> MutParserSourceIter<'a> {
-        MutParserSourceIter::new(self)
+    pub fn get_mut_iter(&self) -> RwLockWriteGuard<'_, Vec<Vec<u8>>> {
+        self.paragraphs.write()
     }
 
-    pub fn get_iter<'a>(&'a self) -> ParserSourceIter<'a> {
-        ParserSourceIter::new(self)
+    pub fn get_paragraphs(&self) -> RwLockReadGuard<'_, Vec<Vec<u8>>> {
+        self.paragraphs.read()
     }
 }
 
-pub struct ParserSourceIter<'a> {
-    source: &'a ParserSource,
-    paragraph_index: usize,
-}
+// pub struct ParserSourceIter<'a> {
+//     source: &'a ParserSource,
+//     paragraph_index: usize,
+// }
 
 pub struct MutParserSourceIter<'a> {
     inner: ParserSourceIter<'a>,
@@ -186,34 +187,34 @@ impl<'a> MutParserSourceIter<'a> {
     }
 }
 
-impl<'a> Iterator for ParserSourceIter<'a> {
-    type Item = MappedRwLockReadGuard<'a, [u8]>;
+// impl<'a> Iterator for ParserSourceIter<'a> {
+//     type Item = MappedRwLockReadGuard<'a, [u8]>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let par_ref = self.source.paragraphs.read();
-        let par_ref2 = RwLockReadGuard::map(par_ref, |par| {
-            par.get(self.paragraph_index)
-                .map_or(&[] as &[u8], |par| &**par)
-        });
-        self.paragraph_index += 1;
-        par_ref2.is_empty().then(|| par_ref2)
-    }
-}
+//     fn next(&mut self) -> Option<Self::Item> {
+//         let par_ref = self.source.paragraphs.read();
+//         let par_ref2 = RwLockReadGuard::map(par_ref, |par| {
+//             par.get(self.paragraph_index)
+//                 .map_or(&[] as &[u8], |par| &**par)
+//         });
+//         self.paragraph_index += 1;
+//         par_ref2.is_empty().then(|| par_ref2)
+//     }
+// }
 
-impl<'a> MutParserSourceIter<'a> {
-    fn new(source: &'a ParserSource) -> Self {
-        Self {
-            inner: ParserSourceIter::new(source),
-            source_index: 0,
-        }
-    }
-}
+// impl<'a> MutParserSourceIter<'a> {
+//     fn new(source: &'a ParserSource) -> Self {
+//         Self {
+//             inner: ParserSourceIter::new(source),
+//             source_index: 0,
+//         }
+//     }
+// }
 
-impl<'a> ParserSourceIter<'a> {
-    fn new(source: &'a ParserSource) -> Self {
-        Self {
-            source,
-            paragraph_index: 0,
-        }
-    }
-}
+// impl<'a> ParserSourceIter<'a> {
+//     fn new(source: &'a ParserSource) -> Self {
+//         Self {
+//             source,
+//             paragraph_index: 0,
+//         }
+//     }
+// }

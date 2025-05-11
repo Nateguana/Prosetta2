@@ -5,8 +5,9 @@ use std::{any::Any, future::IntoFuture, sync::Arc, task::Poll};
 use context::{Context, DebugContext, DebugContextBase, RunContext};
 use genawaiter::sync::{Co, GenBoxed};
 
-use parking_lot::{Mutex, MutexGuard, RwLock};
+// use parking_lot::{MappedMutexGuard, Mutex, MutexGuard, RwLock};
 pub(crate) use parser_result::{ParserAction, ParserData, ParserStep};
+// use smol::lock::{RwLock, RwLockReadGuardArc};
 // use alias::WordTriggerArena;
 // use bstr::ByteSlice;
 mod close_data;
@@ -15,18 +16,24 @@ mod context;
 mod fail_reason;
 mod imports;
 mod parser_result;
+mod rwlock;
 mod slice;
 mod source;
 mod types;
 
+use rwlock::{ArcRwLock, RwLockReadGuard, RwLockReadGuardArc};
+
 pub(crate) mod javascript_writer;
 pub(crate) mod lisp_like_writer;
 
-use commands::{title::Title, Command, Paragraph, Parseable};
+use commands::{
+    title::{self, Title},
+    Command, Paragraph, Parseable,
+};
 use slice::Slice;
 pub use source::ParserSource;
 
-use source::ParserSourceIter;
+// use source::ParserSourceIter;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -43,7 +50,7 @@ use wasm_bindgen::prelude::*;
 pub struct Parser {
     source: Arc<ParserSource>,
     generator: GenBoxed<ParserStep, (), ParserStep>,
-    tree: Arc<Mutex<Vec<Box<dyn Paragraph>>>>,
+    tree: ArcRwLock<Vec<Box<dyn Paragraph>>>,
     is_generator_done: bool,
 }
 
@@ -51,7 +58,7 @@ impl Parser {
     ///make a new parser with a source and command flags
     pub fn new(source: ParserSource) -> Parser {
         let arc_source = Arc::new(source);
-        let lock_tree = Arc::new(Mutex::new(Vec::new()));
+        let lock_tree = ArcRwLock::new(Vec::new());
         let generator = GenBoxed::new_boxed(|co| {
             Parser::start_debug(co, arc_source.clone(), lock_tree.clone())
         });
@@ -66,7 +73,7 @@ impl Parser {
 
     pub fn run(source: ParserSource) -> ParserData {
         let arc_source = Arc::new(source);
-        let tree = Arc::new(Mutex::new(Vec::new()));
+        let tree = ArcRwLock::new(Vec::new());
 
         let global_parent = commands::none::NoneStart::new();
         // let mut context_base = RunContextBase::new();
@@ -77,19 +84,19 @@ impl Parser {
         smol::block_on(result);
         ParserData {
             source: Arc::into_inner(arc_source).unwrap(),
-            tree: Mutex::into_inner(Arc::into_inner(tree).unwrap()),
+            tree: tree.into_inner(),
         }
     }
 
     async fn start_debug(
         co: Co<ParserStep>,
         source: Arc<ParserSource>,
-        tree: Arc<Mutex<Vec<Box<dyn Paragraph>>>>,
+        tree: ArcRwLock<Vec<Box<dyn Paragraph>>>,
     ) -> ParserStep {
         let global_parent = commands::none::NoneStart::new();
         let mut context_base = DebugContextBase::new(co);
         let context = DebugContext::new(&mut context_base, &global_parent);
-        Parser::start(context, source, tree);
+        Parser::start(context, source, tree).await;
 
         let finish_action = ParserAction::Finished;
 
@@ -99,24 +106,27 @@ impl Parser {
     async fn start(
         co: impl Context,
         source: Arc<ParserSource>,
-        tree: Arc<Mutex<Vec<Box<dyn Paragraph>>>>,
+        tree: ArcRwLock<Vec<Box<dyn Paragraph>>>,
     ) {
         let has_title = false;
         // let mut iter = source.get_mut_iter();
 
-        for paragraph in source.get_mut_iter() {
+        let sources = source.get_paragraphs();
+        for paragraph in sources.iter() {
             let slice = Slice::new(&*paragraph);
             if !has_title {
-                let mut tree = tree.lock();
-                let mut title = Box::new(Title::new()) as Box<dyn Paragraph>;
-                tree.push(title);
-                let title_ref = tree
+                {
+                    let mut tree_lock = tree.write();
+                    let title = Box::new(Title::new()) as Box<dyn Paragraph>;
+                    tree_lock.push(title);
+                }
+                let title_lock = tree.read();
+                let title_ref = title_lock
                     .last()
                     .unwrap()
                     .as_any()
                     .downcast_ref::<Title>()
                     .unwrap();
-                // let title_ref =   (*tree.last().unwrap() as Box<dyn Any>).downcast_mut::<Title>().unwrap();
 
                 co.step_child(co.get_parent(), title_ref, slice).await;
             }
@@ -145,15 +155,19 @@ impl Parser {
         }
     }
 
-    pub fn tree(&self) -> MutexGuard<Vec<Box<dyn Paragraph>>> {
-        self.tree.lock()
+    pub fn tree(&self) -> RwLockReadGuardArc<Vec<Box<dyn Paragraph>>> {
+        self.tree.read()
     }
 
-    // pub fn iter<'a>(&'a mut self) -> ParserIter<'a> {
-    //     ParserIterator { parser: self }
-    // }
-    pub fn source_iter<'a>(&'a self) -> ParserSourceIter<'a> {
-        self.source.get_iter()
+    pub fn source_iter(&self) -> RwLockReadGuard<'_, Vec<Vec<u8>>> {
+        self.source.get_paragraphs()
+    }
+
+    pub fn into_data(self) -> ParserData {
+        ParserData {
+            source: Arc::into_inner(self.source).unwrap(),
+            tree: self.tree.into_inner(),
+        }
     }
 }
 
