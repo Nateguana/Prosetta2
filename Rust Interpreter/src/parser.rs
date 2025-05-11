@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::{any::Any, future::IntoFuture, sync::Arc, task::Poll};
+// use std::{any::Any, future::IntoFuture, sync::Arc, task::Poll};
 
 use context::{Context, DebugContext, DebugContextBase, RunContext};
 use genawaiter::sync::{Co, GenBoxed};
@@ -21,18 +21,16 @@ mod slice;
 mod source;
 mod types;
 
-use rwlock::{ArcRwLock, RwLockReadGuard, RwLockReadGuardArc};
+use rwlock::{ArcRwLock, RwLockReadGuardArc};
 
 pub(crate) mod javascript_writer;
 pub(crate) mod lisp_like_writer;
 
-use commands::{
-    title::{self, Title},
-    Command, Paragraph, Parseable,
-};
+use commands::{title::Title, Paragraph, Parseable};
 use slice::Slice;
 pub use source::ParserSource;
 
+use source::ParserSourceStepper;
 // use source::ParserSourceIter;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -48,7 +46,7 @@ use wasm_bindgen::prelude::*;
 // }
 
 pub struct Parser {
-    source: Arc<ParserSource>,
+    source: ArcRwLock<ParserSource>,
     generator: GenBoxed<ParserStep, (), ParserStep>,
     tree: ArcRwLock<Vec<Box<dyn Paragraph>>>,
     is_generator_done: bool,
@@ -57,7 +55,7 @@ pub struct Parser {
 impl Parser {
     ///make a new parser with a source and command flags
     pub fn new(source: ParserSource) -> Parser {
-        let arc_source = Arc::new(source);
+        let arc_source = ArcRwLock::new(source);
         let lock_tree = ArcRwLock::new(Vec::new());
         let generator = GenBoxed::new_boxed(|co| {
             Parser::start_debug(co, arc_source.clone(), lock_tree.clone())
@@ -72,7 +70,7 @@ impl Parser {
     }
 
     pub fn run(source: ParserSource) -> ParserData {
-        let arc_source = Arc::new(source);
+        let arc_source = ArcRwLock::new(source);
         let tree = ArcRwLock::new(Vec::new());
 
         let global_parent = commands::none::NoneStart::new();
@@ -83,14 +81,14 @@ impl Parser {
         // let res2 = result.into_future();
         smol::block_on(result);
         ParserData {
-            source: Arc::into_inner(arc_source).unwrap(),
+            source: arc_source.into_inner(),
             tree: tree.into_inner(),
         }
     }
 
     async fn start_debug(
         co: Co<ParserStep>,
-        source: Arc<ParserSource>,
+        source: ArcRwLock<ParserSource>,
         tree: ArcRwLock<Vec<Box<dyn Paragraph>>>,
     ) -> ParserStep {
         let global_parent = commands::none::NoneStart::new();
@@ -105,14 +103,16 @@ impl Parser {
 
     async fn start(
         co: impl Context,
-        source: Arc<ParserSource>,
+        source: ArcRwLock<ParserSource>,
         tree: ArcRwLock<Vec<Box<dyn Paragraph>>>,
     ) {
         let has_title = false;
         // let mut iter = source.get_mut_iter();
 
-        let sources = source.get_paragraphs();
-        for paragraph in sources.iter() {
+        let mut parser_stepper = ParserSourceStepper::new();
+        parser_stepper.step(&mut source.write());
+
+        while let Some(paragraph) = parser_stepper.next(&source.read()) {
             let slice = Slice::new(&*paragraph);
             if !has_title {
                 {
@@ -130,6 +130,8 @@ impl Parser {
 
                 co.step_child(co.get_parent(), title_ref, slice).await;
             }
+
+            parser_stepper.step(&mut source.write());
         }
     }
 }
@@ -159,13 +161,13 @@ impl Parser {
         self.tree.read()
     }
 
-    pub fn source_iter(&self) -> RwLockReadGuard<'_, Vec<Vec<u8>>> {
-        self.source.get_paragraphs()
+    pub fn get_source(&self) -> RwLockReadGuardArc<ParserSource> {
+        self.source.read()
     }
 
     pub fn into_data(self) -> ParserData {
         ParserData {
-            source: Arc::into_inner(self.source).unwrap(),
+            source: self.source.into_inner(),
             tree: self.tree.into_inner(),
         }
     }

@@ -1,6 +1,6 @@
 #![cfg(not(feature = "wasm"))]
 
-use std::{cell::RefCell, mem};
+use std::mem;
 
 // use parking_lot::lock_api::Mutex;
 use parser::{
@@ -95,7 +95,7 @@ fn main() {
     // let mut last_step = None;
     while let Some(step) = parser.next() {
         println!("{:?}", step);
-        for paragraph in parser.source_iter().iter() {
+        for paragraph in parser.get_source().get_iter() {
             println!("{:?}", paragraph);
         }
         println!("{}", javascript_writer::write_all(&parser.tree()));
