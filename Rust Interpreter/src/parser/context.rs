@@ -1,13 +1,17 @@
+use bitflags::parser;
 use genawaiter::sync::Co;
+use itertools::Position;
 
 use super::{
     commands::{Command, Parseable},
-    parser_result::{ParserAction, ParserStep},
+    fail_reason::FailReason,
+    parser_result::{self, ParserAction, ParserStep},
     slice::Slice,
-    types::ReturnType,
-    // slice::Slice,
-    // types::ReturnType,
+    types::ReturnType, // slice::Slice,
+                       // types::ReturnType,
 };
+
+const MAX_STACK_FRAME_LEVEL: u8 = 100;
 
 pub type Spot = Box<dyn Command>;
 
@@ -28,6 +32,7 @@ pub trait Context: Send + Sync {
     ) -> Option<(usize, ReturnType)>;
 
     fn get_parent(&self) -> &dyn Parseable;
+    fn get_level(&self) -> u8;
     // async fn step_match(&self, this: &'static str, child: &dyn Command, pos: usize);
     // async fn step_fail(&self, this: &'static str, child: &dyn Command, pos: usize);
 }
@@ -110,12 +115,45 @@ impl<'a, 'b> Context for DebugContext<'a, 'b> {
                 slice.pos,
             ))
             .await;
-        self.inner.step_child(this, child, slice).await;
-        None
+
+        let context = self.new_from(this);
+
+        let result = if self.inner.level < MAX_STACK_FRAME_LEVEL {
+            child.try_parse(context, slice).await
+        } else {
+            Err(FailReason::StackFrameLimit)
+        };
+
+        let parser_step = match result {
+            Ok((position, return_type)) => ParserStep::new(
+                ParserAction::Matched {
+                    parent: this.name(),
+                    child: child.name(),
+                    return_type
+                },
+                position,
+            ),
+            Err(reason) => ParserStep::new(
+                ParserAction::Failed {
+                    parent: this.name(),
+                    child: child.name(),
+                    reason,
+                },
+                slice.pos,
+            ),
+        };
+
+        self.base.co.yield_(parser_step).await;
+
+        result.ok()
     }
 
     fn get_parent(&self) -> &'b dyn Parseable {
         self.inner.parent
+    }
+
+    fn get_level(&self) -> u8 {
+        self.inner.get_level()
     }
     // async fn step_paragraph(
     //     &self,
@@ -153,21 +191,33 @@ impl<'a> Context for RunContext<'a> {
         child: &T,
         slice: Slice<'_>,
     ) -> Option<(usize, ReturnType)> {
-        let context = RunContext::new_from(self, this);
+        let context = self.new_from(this);
 
-        let ret = child.try_parse(context, slice).await;
-        ret.ok()
+        if self.level < MAX_STACK_FRAME_LEVEL {
+            let ret = child.try_parse(context, slice).await;
+            ret.ok()
+        } else {
+            None
+        }
     }
 
     fn get_parent(&self) -> &'a dyn Parseable {
         self.parent
     }
+
+    fn get_level(&self) -> u8 {
+        self.level
+    }
 }
 
-// async fn step_child<T: Command + 'static>(
+// async fn step_child_impl<T: Command + 'static>(
 //     co: impl Context,
 //     child: &T,
 //     slice: Slice<'_>,
-// ) -> Option<(usize, ReturnType)> {
-//     child.try_parse(co, slice).await
+// ) -> Result<(usize, ReturnType), FailReason> {
+//     if co.get_level() <= MAX_STACK_FRAME_LEVEL {
+//         child.try_parse(co, slice).await;
+//     } else {
+//         None
+//     }
 // }

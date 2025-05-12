@@ -4,7 +4,7 @@ use std::str;
 
 impl JavascriptWriter for Title {
     fn write_javascript(&self) -> String {
-        let this = self.lock();
+        let this = self.inner.read();
         let title_str = str::from_utf8(&this.title).unwrap();
         let mut authors = this
             .authors

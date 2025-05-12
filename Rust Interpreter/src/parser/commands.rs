@@ -11,6 +11,7 @@ use super::{
     imports::Import,
     javascript_writer::JavascriptWriter,
     lisp_like_writer::LispWriter,
+    rwlock::{RwLock, RwLockWriteGuard, RwLockWriteGuardArc},
     slice::Slice,
     types::ReturnType,
 };

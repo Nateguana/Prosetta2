@@ -1,10 +1,14 @@
-use std::{any::Any, mem::{self}};
+use std::{
+    any::Any,
+    mem::{self},
+};
 
 use bstr::{ByteSlice, ByteVec};
-use parking_lot::{Mutex, MutexGuard};
+// use parking_lot::{Mutex, MutexGuard};
 
 use super::{
-    close_data, CloseData, Command, Context, FailReason, Import, Paragraph, Parseable, ReturnType, Slice
+    close_data, CloseData, Command, Context, FailReason, Import, Paragraph, Parseable, ReturnType,
+    RwLock, Slice,
 };
 
 #[derive(Debug)]
@@ -37,14 +41,10 @@ pub struct TitleData {
 
 #[derive(Default, Debug)]
 pub struct Title {
-    pub inner: Mutex<TitleData>,
+    pub inner: RwLock<TitleData>,
 }
 
 impl Title {
-    pub fn lock(&self) -> MutexGuard<TitleData> {
-        self.inner.try_lock().unwrap()
-    }
-
     ///add title data and returns slice after by
     async fn find_title<'a>(&self, co: &impl Context, slice: Slice<'a>) -> Slice<'a> {
         let mut curr_slice = slice;
@@ -54,7 +54,7 @@ impl Title {
 
             // add title
             {
-                let mut this = self.inner.lock();
+                let mut this = self.inner.write();
                 this.title.push_str(title.str.trim());
                 this.title.push_str(space);
                 this.title_length = rest.pos;
@@ -72,7 +72,7 @@ impl Title {
             let (word, rest2) = rest.get_next_word_arg();
 
             if word.str == b"by" {
-                self.lock().by_start = word.pos;
+                self.inner.write().by_start = word.pos;
                 return rest2;
             }
 
@@ -98,7 +98,7 @@ impl Title {
                 if author_data.name.len() > 0 {
                     sep = b"";
                     parsed_first = true;
-                    self.inner.lock().authors.push(mem::replace(
+                    self.inner.write().authors.push(mem::replace(
                         &mut author_data,
                         AuthorData {
                             name: Vec::new(),
@@ -120,7 +120,7 @@ impl Title {
         }
         // add last author
         if author_data.name.len() > 0 {
-            self.inner.lock().authors.push(author_data);
+            self.inner.write().authors.push(author_data);
         }
     }
 
@@ -168,7 +168,6 @@ impl Command for Title {
         self.parse_authors(&co, curr_slice).await;
         Ok((slice.end(), ReturnType::Null))
     }
-
 }
 
 impl Paragraph for Title {}

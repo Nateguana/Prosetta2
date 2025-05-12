@@ -3,14 +3,9 @@ use std::sync::Arc;
 use smol::lock;
 
 #[allow(unused)]
-pub(crate) use lock::{
-    RwLockReadGuard,
-    RwLockWriteGuard,
-    RwLockReadGuardArc,
-    RwLockWriteGuardArc
-};
+pub(crate) use lock::{RwLockReadGuard, RwLockReadGuardArc, RwLockWriteGuard, RwLockWriteGuardArc};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct RwLock<T> {
     inner: lock::RwLock<T>,
 }
@@ -35,7 +30,7 @@ impl<T> RwLock<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ArcRwLock<T> {
     inner: Arc<lock::RwLock<T>>,
 }
@@ -62,6 +57,8 @@ impl<T> ArcRwLock<T> {
 
 impl<T> Clone for ArcRwLock<T> {
     fn clone(&self) -> Self {
-        Self { inner: self.inner.clone() }
+        Self {
+            inner: self.inner.clone(),
+        }
     }
 }

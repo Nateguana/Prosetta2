@@ -3,7 +3,7 @@ use std::str;
 
 impl LispWriter for Title {
     fn write_lisp(&self) -> String {
-        let this = self.lock();
+        let this = self.inner.read();
         // escape potetial " in title
         let title_str = str::from_utf8(&this.title).unwrap().replace("\"", "\\\"");
         let title_length = this.title_length;

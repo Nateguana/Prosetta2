@@ -110,28 +110,30 @@ impl Parser {
         // let mut iter = source.get_mut_iter();
 
         let mut parser_stepper = ParserSourceStepper::new();
-        parser_stepper.step(&mut source.write());
 
-        while let Some(paragraph) = parser_stepper.next(&source.read()) {
-            let slice = Slice::new(&*paragraph);
-            if !has_title {
-                {
-                    let mut tree_lock = tree.write();
-                    let title = Box::new(Title::new()) as Box<dyn Paragraph>;
-                    tree_lock.push(title);
-                }
-                let title_lock = tree.read();
-                let title_ref = title_lock
-                    .last()
-                    .unwrap()
-                    .as_any()
-                    .downcast_ref::<Title>()
-                    .unwrap();
-
-                co.step_child(co.get_parent(), title_ref, slice).await;
-            }
-
+        loop {
             parser_stepper.step(&mut source.write());
+            if let Some(paragraph) = parser_stepper.next(&source.read()) {
+                let slice = Slice::new(&*paragraph);
+                if !has_title {
+                    {
+                        let mut tree_lock = tree.write();
+                        let title = Box::new(Title::new()) as Box<dyn Paragraph>;
+                        tree_lock.push(title);
+                    }
+                    let title_lock = tree.read();
+                    let title_ref = title_lock
+                        .last()
+                        .unwrap()
+                        .as_any()
+                        .downcast_ref::<Title>()
+                        .unwrap();
+
+                    co.step_child(co.get_parent(), title_ref, slice).await;
+                }
+            } else {
+                break;
+            }
         }
     }
 }

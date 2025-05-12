@@ -1,10 +1,9 @@
-use super::{commands::Paragraph, ParserSource};
+use super::{commands::Paragraph, fail_reason::FailReason, types::ReturnType, ParserSource};
 
 #[derive(Debug)]
 pub struct ParserData {
     pub source: ParserSource,
     pub tree: Vec<Box<dyn Paragraph>>,
-    
 }
 #[derive(Debug)]
 pub struct ParserStep {
@@ -34,10 +33,12 @@ pub enum ParserAction {
     Matched {
         child: &'static str,
         parent: &'static str,
+        return_type: ReturnType,
     },
     Failed {
         child: &'static str,
         parent: &'static str,
+        reason: FailReason,
     },
     Finished,
 }
