@@ -96,7 +96,7 @@ fn main() {
     while let Some(step) = parser.next() {
         println!("{:?}", step);
         for paragraph in parser.get_source().get_iter() {
-            println!("{:?}", paragraph);
+            println!("{:?}", str::from_utf8(paragraph).unwrap());
         }
         println!("{}", javascript_writer::write_all(&parser.tree()));
         println!("{}", lisp_like_writer::write_all(&parser.tree()));
