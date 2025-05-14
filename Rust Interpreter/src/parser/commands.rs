@@ -1,33 +1,38 @@
-mod alias_finder;
 pub mod none;
 pub mod title;
 
 use std::{any::Any, fmt::Debug};
 
+use super::syntax_writer::SyntaxWriter;
+#[allow(unused)]
 use super::{
     close_data::{self, CloseData},
-    context::Context,
+    context::{Context, Step_Continue},
     fail_reason::FailReason,
     imports::Import,
     javascript_writer::JavascriptWriter,
     lisp_like_writer::LispWriter,
     rwlock::{RwLock, RwLockWriteGuard, RwLockWriteGuardArc},
     slice::Slice,
-    types::ReturnType,
+    types::{ReturnType, ReturnTypeSet},
 };
 
 pub type AliasName = [u8; 3];
 
-pub trait Parseable: Sync + Send + Any + Debug {
-    fn new() -> Self
-    where
-        Self: Sized;
+#[async_trait::async_trait]
+pub trait ParseTreeObj: Sync + Send + Any + Debug {
+    // fn new() -> Self
+    // where
+    //     Self: Sized;
     fn name(&self) -> &'static str;
     fn as_any(&self) -> &dyn Any;
-}
 
+    fn get_name(&self) -> String {
+        self.name().to_string()
+    }
+}
 #[async_trait::async_trait]
-pub trait Command: Parseable + JavascriptWriter + LispWriter {
+pub trait Parsable: ParseTreeObj + JavascriptWriter + LispWriter + SyntaxWriter {
     async fn try_parse(
         &self,
         co: impl Context,
@@ -35,11 +40,38 @@ pub trait Command: Parseable + JavascriptWriter + LispWriter {
     ) -> Result<(usize, ReturnType), FailReason>
     where
         Self: Sized;
+}
+
+pub trait Aliased: Parsable {
+    fn alias(&self) -> AliasName;
+
+    fn get_name(&self) -> String {
+        format!(
+            "{} ({})",
+            str::from_utf8(&self.alias()).unwrap(),
+            self.name().to_string()
+        )
+    }
+}
+
+#[async_trait::async_trait]
+pub trait Stat: Parsable {
+    fn get_return_types(&self) -> ReturnTypeSet;
 
     fn is_none(&self) -> bool {
         false
     }
 }
+
+#[async_trait::async_trait]
+pub trait Expr: Parsable {
+    fn get_return_types(&self) -> ReturnTypeSet;
+
+    fn is_none(&self) -> bool {
+        false
+    }
+}
+
 #[async_trait::async_trait]
 pub trait CommandData: Sync + Send + Any {
     fn new() -> Self
@@ -59,4 +91,4 @@ pub trait CommandData: Sync + Send + Any {
 //     Failed(FailReason),
 // }
 #[async_trait::async_trait]
-pub trait Paragraph: Command {}
+pub trait Paragraph: Parsable {}

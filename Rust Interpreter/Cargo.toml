@@ -28,8 +28,8 @@ bitflags = "2.6.0"
 genawaiter = "0.99.1"
 async-trait = "0.1.88"
 streaming-iterator = "0.1.9"
-parking_lot = "0.12.3"
 smol = "2.0.2"
+ufmt = "0.2.0"
 #tokio = { version = "1.45.0", features = ["rt"] }
 
 [dev-dependencies]
@@ -40,3 +40,6 @@ dwarf-debug-info = true
 
 [package.metadata.wasm-pack.profile.profiling.wasm-bindgen]
 dwarf-debug-info = true
+
+[profile.release]
+debug = true

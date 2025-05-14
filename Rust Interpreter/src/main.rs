@@ -1,6 +1,6 @@
 #![cfg(not(feature = "wasm"))]
 
-use std::mem;
+use std::{hint::black_box, mem};
 
 // use parking_lot::lock_api::Mutex;
 use parser::{
@@ -88,19 +88,15 @@ fn main() {
 
     // let k = mem::size_of::<Mutex<u64>>();
 
+    let debug_program = false;
+
     let source = ParserSource::from_stdin();
+    let parser = Parser::new(source);
 
-    let mut parser = Parser::new(source);
-
-    // let mut last_step = None;
-    while let Some(step) = parser.next() {
-        println!("{:?}", step);
-        for paragraph in parser.get_source().get_iter() {
-            println!("{:?}", str::from_utf8(paragraph).unwrap());
-        }
-        println!("{}", javascript_writer::write_all(&parser.tree()));
-        println!("{}", lisp_like_writer::write_all(&parser.tree()));
-        // last_step = Some(step);
+    if black_box(debug_program) {
+        debug(parser);
+    } else {
+        run(parser);
     }
 
     // let ParserAction::Finished { data } = last_step.unwrap().action else {
@@ -131,6 +127,27 @@ fn main() {
     // let _ = io::stdin().read(&mut [0u8]).unwrap();
 }
 
+fn debug(parser: Parser) {
+    let mut debugger = parser.debug();
+
+    // let mut last_step = None;
+    while let Some(step) = debugger.next() {
+        println!("{:?}", step);
+        for paragraph in debugger.get_source().get_iter() {
+            println!("{:?}", str::from_utf8(paragraph).unwrap());
+        }
+        println!("{}", javascript_writer::write_all(&debugger.tree()));
+        println!("{}", lisp_like_writer::write_all(&debugger.tree()));
+    }
+}
+
+fn run(parser: Parser) {
+    let parser_data = parser.run();
+
+    println!("{:?}", parser_data.source);
+    println!("{}", javascript_writer::write_all(&parser_data.tree));
+    println!("{}", lisp_like_writer::write_all(&parser_data.tree));
+}
 // #[allow(dead_code)]
 // static MILO_POEM: [&[u8]; 2] = [
 //     b"

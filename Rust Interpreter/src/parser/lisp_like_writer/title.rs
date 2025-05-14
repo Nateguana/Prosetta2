@@ -6,7 +6,8 @@ impl LispWriter for Title {
         let this = self.inner.read();
         // escape potetial " in title
         let title_str = str::from_utf8(&this.title).unwrap().replace("\"", "\\\"");
-        let title_length = this.title_length;
+        let title_length = this.by_start;
+
 
         let authors_str = this.authors.iter().fold(String::new(), |acc, data| {
             let author_str = str::from_utf8(&data.name).unwrap();

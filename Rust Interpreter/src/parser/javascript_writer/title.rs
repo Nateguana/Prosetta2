@@ -42,9 +42,7 @@ impl JavascriptWriter for Title {
         };
 
         format!(
-            "/*
-            Title: {title_str}{primary_author_str}{secondary_authors_str}{imports_str}
-            */",
+            "/*\nTitle: {title_str}{primary_author_str}{secondary_authors_str}{imports_str}\n*/",
         )
     }
 }

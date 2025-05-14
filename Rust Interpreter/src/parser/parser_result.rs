@@ -19,25 +19,26 @@ impl ParserStep {
 
 #[derive(Debug)]
 pub enum ParserAction {
-    Move {
-        child: &'static str,
+    Continue {
+        child: String,
+        description: String,
     },
     StartParagraph {
         index: usize,
-        child: &'static str,
+        child: String,
     },
     Child {
-        child: &'static str,
-        parent: &'static str,
+        child: String,
+        parent: String,
     },
     Matched {
-        child: &'static str,
-        parent: &'static str,
+        child: String,
+        parent: String,
         return_type: ReturnType,
     },
     Failed {
-        child: &'static str,
-        parent: &'static str,
+        child: String,
+        parent: String,
         reason: FailReason,
     },
     Finished,

@@ -2,7 +2,7 @@ use bitflags::bitflags;
 
 bitflags! {
     #[derive(Debug,Clone,Copy,Hash,PartialEq,Eq)]
-    pub struct Types: u32 {
+    pub struct ReturnTypeSet: u32 {
         const Null =   0;
         const Void =   0b1;
 

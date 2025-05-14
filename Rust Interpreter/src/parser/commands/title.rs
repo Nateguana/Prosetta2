@@ -1,5 +1,6 @@
 use std::{
     any::Any,
+    hint::black_box,
     mem::{self},
 };
 
@@ -7,8 +8,8 @@ use bstr::{ByteSlice, ByteVec};
 // use parking_lot::{Mutex, MutexGuard};
 
 use super::{
-    close_data, CloseData, Command, Context, FailReason, Import, Paragraph, Parseable, ReturnType,
-    RwLock, Slice,
+    close_data, CloseData, Context, FailReason, Import, Paragraph, Parsable, ParseTreeObj,
+    ReturnType, ReturnTypeSet, RwLock, Slice, Step_Continue,
 };
 
 #[derive(Debug)]
@@ -28,9 +29,6 @@ pub struct ImportData {
 pub struct TitleData {
     /// the poem title
     pub title: Vec<u8>,
-    /// the length of the poem title in poem
-    /// (self.title is trimmed)
-    pub title_length: usize,
     /// the author names
     pub authors: Vec<AuthorData>,
     // the imports: (type, position, length)
@@ -45,6 +43,9 @@ pub struct Title {
 }
 
 impl Title {
+    pub fn new() -> Self {
+        Default::default()
+    }
     ///add title data and returns slice after by
     async fn find_title<'a>(&self, co: &impl Context, slice: Slice<'a>) -> Slice<'a> {
         let mut curr_slice = slice;
@@ -57,10 +58,18 @@ impl Title {
                 let mut this = self.inner.write();
                 this.title.push_str(title.str.trim());
                 this.title.push_str(space);
-                this.title_length = rest.pos;
             }
 
-            co.step_continue(self, rest.pos).await;
+            if space.len() > 1 {
+                Step_Continue!(
+                    co,
+                    self,
+                    rest.pos,
+                    "{} did not find keyword by so added line to title"
+                );
+            } else {
+                Step_Continue!(co, self, rest.pos, "{} added first line to title");
+            }
 
             space = b"\n";
             // no more text
@@ -75,6 +84,16 @@ impl Title {
                 self.inner.write().by_start = word.pos;
                 return rest2;
             }
+
+            // let mut test = Vec::new();
+
+            // std::io::Write::write(&mut test, b"this should show up").unwrap();
+
+            // black_box(test);
+
+            // black_box(unsafe {
+            //     black_box(std::arch::asm!("mov esi, esi"));
+            // });
 
             curr_slice = rest;
         }
@@ -92,12 +111,10 @@ impl Title {
         while curr_slice.len() > 0 {
             let slice;
             (slice, curr_slice) = curr_slice.get_next_slice();
-            co.step_continue(self, slice.pos).await;
             // if is separator
             if Self::is_separator(slice.str).close_count > 0 {
                 if author_data.name.len() > 0 {
                     sep = b"";
-                    parsed_first = true;
                     self.inner.write().authors.push(mem::replace(
                         &mut author_data,
                         AuthorData {
@@ -106,6 +123,14 @@ impl Title {
                             length: 0,
                         },
                     ));
+                    Step_Continue!(co, self, slice.pos, "{} parsed an author");
+                    if parsed_first {
+                        let inner_lock = self.inner.read();
+                        let name = inner_lock.authors.last().unwrap().name.as_slice();
+                        Self::find_imports(name);
+                        Step_Continue!(co, self, slice.pos, "{} parsed imports for author");
+                    }
+                    parsed_first = true;
                 }
             //author name
             } else {
@@ -113,9 +138,6 @@ impl Title {
                 author_data.name.push_str(slice.str);
                 author_data.length = slice.end() - author_data.pos;
                 sep = b" ";
-                if parsed_first {
-                    //find_imports()
-                }
             }
         }
         // add last author
@@ -141,13 +163,11 @@ impl Title {
             close_data::get_close_data(str)
         }
     }
+
+    fn find_imports(str: &[u8]) {}
 }
 
-impl Parseable for Title {
-    fn new() -> Self {
-        Default::default()
-    }
-
+impl ParseTreeObj for Title {
     fn name(&self) -> &'static str {
         "Title"
     }
@@ -158,14 +178,24 @@ impl Parseable for Title {
 }
 
 #[async_trait::async_trait]
-impl Command for Title {
+impl Parsable for Title {
     async fn try_parse(
         &self,
         co: impl Context,
         slice: Slice<'_>,
     ) -> Result<(usize, ReturnType), FailReason> {
         let curr_slice = self.find_title(&co, slice).await;
-        self.parse_authors(&co, curr_slice).await;
+        if curr_slice.len() > 0 {
+            Step_Continue!(
+                co,
+                self,
+                curr_slice.pos,
+                "{} found author section with the keyword by"
+            );
+            self.parse_authors(&co, curr_slice).await;
+        } else {
+            Step_Continue!(co, self, curr_slice.pos, "{} never found keyword by");
+        }
         Ok((slice.end(), ReturnType::Null))
     }
 }

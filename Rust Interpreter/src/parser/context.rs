@@ -1,11 +1,9 @@
-use bitflags::parser;
 use genawaiter::sync::Co;
-use itertools::Position;
 
 use super::{
-    commands::{Command, Parseable},
+    commands::{Parsable, ParseTreeObj},
     fail_reason::FailReason,
-    parser_result::{self, ParserAction, ParserStep},
+    parser_result::{ParserAction, ParserStep},
     slice::Slice,
     types::ReturnType, // slice::Slice,
                        // types::ReturnType,
@@ -13,25 +11,25 @@ use super::{
 
 const MAX_STACK_FRAME_LEVEL: u8 = 100;
 
-pub type Spot = Box<dyn Command>;
+pub type Spot = Box<dyn Parsable>;
 
 #[async_trait::async_trait]
 pub trait Context: Send + Sync {
-    async fn step_continue(&self, this: &dyn Command, pos: usize);
+    async fn step_continue(&self, this: &dyn Parsable, pos: usize, description: String);
     // async fn step_paragraph(
     //     &self,
     //     this: &'static str,
     //     child: &mut Box<dyn Command>,
     //     slice: Slice<'_>,
     // ) -> Option<(usize, ReturnType)>;
-    async fn step_child<T: Command + 'static>(
+    async fn step_child<T: Parsable + 'static>(
         &self,
-        this: &dyn Parseable,
+        this: &dyn ParseTreeObj,
         child: &T,
         slice: Slice<'_>,
     ) -> Option<(usize, ReturnType)>;
 
-    fn get_parent(&self) -> &dyn Parseable;
+    fn get_parent(&self) -> &dyn ParseTreeObj;
     fn get_level(&self) -> u8;
     // async fn step_match(&self, this: &'static str, child: &dyn Command, pos: usize);
     // async fn step_fail(&self, this: &'static str, child: &dyn Command, pos: usize);
@@ -51,7 +49,7 @@ pub struct DebugContext<'a, 'b> {
 }
 
 pub struct RunContext<'a> {
-    parent: &'a dyn Parseable,
+    parent: &'a dyn ParseTreeObj,
     level: u8,
 }
 
@@ -62,13 +60,13 @@ impl DebugContextBase {
 }
 
 impl<'a, 'b> DebugContext<'a, 'b> {
-    pub fn new(base: &'a DebugContextBase, parent: &'b dyn Parseable) -> Self {
+    pub fn new(base: &'a DebugContextBase, parent: &'b dyn ParseTreeObj) -> Self {
         Self {
             base,
             inner: RunContext::new(parent),
         }
     }
-    pub fn new_from(&'a self, parent: &'b dyn Parseable) -> Self {
+    pub fn new_from(&'a self, parent: &'b dyn ParseTreeObj) -> Self {
         Self {
             base: &self.base,
             inner: RunContext::new_from(&self.inner, parent),
@@ -77,10 +75,10 @@ impl<'a, 'b> DebugContext<'a, 'b> {
 }
 
 impl<'a> RunContext<'a> {
-    pub fn new(parent: &'a dyn Parseable) -> Self {
+    pub fn new(parent: &'a dyn ParseTreeObj) -> Self {
         Self { parent, level: 0 }
     }
-    pub fn new_from(&self, parent: &'a dyn Parseable) -> Self {
+    pub fn new_from(&self, parent: &'a dyn ParseTreeObj) -> Self {
         Self {
             parent,
             level: self.level + 1,
@@ -90,18 +88,21 @@ impl<'a> RunContext<'a> {
 
 #[async_trait::async_trait]
 impl<'a, 'b> Context for DebugContext<'a, 'b> {
-    async fn step_continue(&self, this: &dyn Command, pos: usize) {
+    async fn step_continue(&self, this: &dyn Parsable, pos: usize, description: String) {
         self.base
             .co
             .yield_(ParserStep::new(
-                ParserAction::Move { child: this.name() },
+                ParserAction::Continue {
+                    child: this.get_name(),
+                    description,
+                },
                 pos,
             ))
             .await;
     }
-    async fn step_child<T: Command + 'static>(
+    async fn step_child<T: Parsable + 'static>(
         &self,
-        this: &dyn Parseable,
+        this: &dyn ParseTreeObj,
         child: &T,
         slice: Slice<'_>,
     ) -> Option<(usize, ReturnType)> {
@@ -109,8 +110,8 @@ impl<'a, 'b> Context for DebugContext<'a, 'b> {
             .co
             .yield_(ParserStep::new(
                 ParserAction::Child {
-                    parent: this.name(),
-                    child: child.name(),
+                    parent: this.get_name(),
+                    child: child.get_name(),
                 },
                 slice.pos,
             ))
@@ -127,16 +128,16 @@ impl<'a, 'b> Context for DebugContext<'a, 'b> {
         let parser_step = match result {
             Ok((position, return_type)) => ParserStep::new(
                 ParserAction::Matched {
-                    parent: this.name(),
-                    child: child.name(),
-                    return_type
+                    parent: this.get_name(),
+                    child: child.get_name(),
+                    return_type,
                 },
                 position,
             ),
             Err(reason) => ParserStep::new(
                 ParserAction::Failed {
-                    parent: this.name(),
-                    child: child.name(),
+                    parent: this.get_name(),
+                    child: child.get_name(),
                     reason,
                 },
                 slice.pos,
@@ -148,7 +149,7 @@ impl<'a, 'b> Context for DebugContext<'a, 'b> {
         result.ok()
     }
 
-    fn get_parent(&self) -> &'b dyn Parseable {
+    fn get_parent(&self) -> &'b dyn ParseTreeObj {
         self.inner.parent
     }
 
@@ -184,10 +185,10 @@ impl<'a, 'b> Context for DebugContext<'a, 'b> {
 }
 #[async_trait::async_trait]
 impl<'a> Context for RunContext<'a> {
-    async fn step_continue(&self, _this: &dyn Command, _pos: usize) {}
-    async fn step_child<T: Command + 'static>(
+    async fn step_continue(&self, _this: &dyn Parsable, _pos: usize, _description: String) {}
+    async fn step_child<T: Parsable + 'static>(
         &self,
-        this: &dyn Parseable,
+        this: &dyn ParseTreeObj,
         child: &T,
         slice: Slice<'_>,
     ) -> Option<(usize, ReturnType)> {
@@ -201,7 +202,7 @@ impl<'a> Context for RunContext<'a> {
         }
     }
 
-    fn get_parent(&self) -> &'a dyn Parseable {
+    fn get_parent(&self) -> &'a dyn ParseTreeObj {
         self.parent
     }
 
@@ -221,3 +222,25 @@ impl<'a> Context for RunContext<'a> {
 //         None
 //     }
 // }
+
+// #[macro_export]
+macro_rules! Step_Continue {
+    ($co:expr,$self:expr,$pos:expr,$format:expr) => {
+        $co.step_continue(
+            $self,
+            $pos,
+            format!($format, $self.get_name()),
+        )
+        .await;
+    };
+    ($co:expr,$self:expr,$pos:expr,$format:expr,$($args:expr),*) => {
+        $co.step_continue(
+            $self,
+            $pos,
+            format!($format, $self.get_name(), $($args:expr), *),
+        )
+        .await;
+    };
+}
+
+pub(crate) use Step_Continue;

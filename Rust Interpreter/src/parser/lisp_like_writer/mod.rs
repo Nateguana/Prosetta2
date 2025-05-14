@@ -1,5 +1,4 @@
 mod none;
-mod paragraph_type;
 mod title;
 
 use super::{commands, Paragraph};
