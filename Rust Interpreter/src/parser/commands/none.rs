@@ -46,7 +46,7 @@ impl ParseTreeObj for None {
 pub struct NoneStart;
 
 impl NoneStart {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self
     }
 }

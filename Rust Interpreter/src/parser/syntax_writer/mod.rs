@@ -6,6 +6,7 @@ use itertools::{Itertools, Position};
 
 pub(crate) mod term_writer;
 
+#[derive(Debug, PartialEq, Clone, Copy)]
 enum LintColor {
     Ignore,
     Title,
@@ -32,7 +33,8 @@ enum LintColor {
 pub struct LintWriter {
     positions: Vec<usize>,
     colors: Vec<LintColor>,
-    index: usize,
+    last_index: usize,
+    last_color: LintColor,
 }
 
 impl LintWriter {
@@ -40,41 +42,46 @@ impl LintWriter {
         Self {
             positions: Vec::new(),
             colors: Vec::new(),
-            index: 0,
+            last_index: 0,
+            last_color: LintColor::Ignore,
         }
     }
 
-    fn write_up_to(&mut self, index: usize) {
-
+    pub fn write_up_to(&mut self, index: usize) {
+        self.write_up_to_as(LintColor::Ignore, index);
     }
 
-    fn write_up_to_as(&mut self, color: LintColor, index: usize) {
-        let num = index.checked_sub(self.index).expect(&format!(
-            "index {} should be after the writing index {}",
-            index, self.index
-        ));
-        let buf = Self::get_n_or_error(source, num);
-        self.renderer.add_with(&buf, color);
-        self.index = index;
-    }
-    // fn write_num(&mut self, source: &mut ParserSourceIter, index: usize) {
-    //     self.write_as(source, index, BASE_COLOR);
-    // }
-    fn write_as(&mut self, source: &mut ParserSourceIter, num: usize, color: (TermColor, bool)) {
-        let buf: Vec<u8> = Self::get_n_or_error(source, num);
-        self.renderer.add_with(&buf, color);
-        self.index += num;
-    }
-
-    fn write_end(&mut self, source: &mut ParserSourceIter) {
-        if let Some(end) = self.ends.take() {
-            // let num = index
-            //     .checked_sub(self.index)
-            //     .expect("index is before the end index");
-            let buf = Self::get_n_or_error(source, end.0 as usize);
-            self.renderer.add_with_mult(&buf, end.1);
-            self.index += end.0 as usize;
+    pub fn write_up_to_as(&mut self, color: LintColor, index: usize) {
+        if index < self.last_index {
+            panic!(
+                "index {} should be after the writing index {}",
+                index, self.last_index
+            )
+        } else {
+            self.push_color(color, index);
         }
+    }
+
+    pub fn write_as(&mut self, color: LintColor, num: usize) {
+        // self.last_index += num;
+        self.push_color(color, self.last_index + num);
+    }
+
+    pub fn finish(&mut self) {
+        // if self.last_color != LintColor::Ignore {
+        //     self.positions.push(self.last_index);
+        //     self.colors.push(LintColor::Ignore);
+        // }
+        self.push_color(LintColor::Ignore, self.last_index + 1);
+    }
+
+    fn push_color(&mut self, color: LintColor, index: usize) {
+        if self.last_color != color {
+            self.positions.push(self.last_index);
+            self.colors.push(color);
+        }
+        self.last_index = index;
+        self.last_color = color;
     }
 }
 
