@@ -28,7 +28,7 @@ pub(crate) mod javascript_writer;
 pub(crate) mod lisp_like_writer;
 pub(crate) mod syntax_writer;
 
-use commands::{title::Title, Paragraph, ParseTreeObj};
+use commands::{title::Title, Paragraph};
 use slice::Slice;
 pub use source::ParserSource;
 
@@ -98,7 +98,7 @@ impl Parser {
         source: ArcRwLock<ParserSource>,
         tree: ArcRwLock<Vec<Box<dyn Paragraph>>>,
     ) {
-        let has_title = false;
+        let mut has_title = false;
         // let mut iter = source.get_mut_iter();
 
         let mut parser_stepper = ParserSourceStepper::new();
@@ -122,6 +122,7 @@ impl Parser {
                         .unwrap();
 
                     co.step_child(co.get_parent(), title_ref, slice).await;
+                    has_title = true;
                 }
             } else {
                 break;

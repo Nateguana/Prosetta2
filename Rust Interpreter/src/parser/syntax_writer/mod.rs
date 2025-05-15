@@ -2,16 +2,16 @@ mod none;
 mod title;
 
 use super::{commands, Paragraph};
-use itertools::{Itertools, Position};
 
 pub(crate) mod term_writer;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-enum LintColor {
+pub enum LintColor {
     Ignore,
     Title,
-    TitleImport,
+    TitleBy,
     TitleAuthor,
+    TitleImport,
     TitleSeparator,
 }
 
@@ -30,18 +30,34 @@ enum LintColor {
 //     }
 // }
 
+#[derive(Debug)]
+pub struct LintData {
+    pub positions: Vec<usize>,
+    pub colors: Vec<LintColor>,
+}
+
 pub struct LintWriter {
-    positions: Vec<usize>,
-    colors: Vec<LintColor>,
+    data: LintData,
     last_index: usize,
     last_color: LintColor,
+}
+
+impl LintData {
+    pub fn get_iter(&self) -> impl Iterator<Item = (usize, LintColor)> + use<'_> {
+        self.positions
+            .iter()
+            .zip(self.colors.iter())
+            .map(|(&a, &b)| (a, b))
+    }
 }
 
 impl LintWriter {
     pub fn new() -> Self {
         Self {
-            positions: Vec::new(),
-            colors: Vec::new(),
+            data: LintData {
+                positions: Vec::new(),
+                colors: Vec::new(),
+            },
             last_index: 0,
             last_color: LintColor::Ignore,
         }
@@ -67,21 +83,30 @@ impl LintWriter {
         self.push_color(color, self.last_index + num);
     }
 
-    pub fn finish(&mut self) {
+    pub fn into_data(mut self) -> LintData {
         // if self.last_color != LintColor::Ignore {
         //     self.positions.push(self.last_index);
         //     self.colors.push(LintColor::Ignore);
         // }
-        self.push_color(LintColor::Ignore, self.last_index + 1);
+        // self.push_color(LintColor::Ignore, self.last_index + 1);
+        if self.last_color != LintColor::Ignore {
+            self.data.positions.push(self.last_index);
+            self.data.colors.push(LintColor::Ignore);
+        }
+
+        self.data
     }
 
     fn push_color(&mut self, color: LintColor, index: usize) {
-        if self.last_color != color {
-            self.positions.push(self.last_index);
-            self.colors.push(color);
+        // if indexes match -- do nothing
+        if index > self.last_index {
+            if self.last_color != color {
+                self.data.positions.push(self.last_index);
+                self.data.colors.push(color);
+            }
+            self.last_index = index;
+            self.last_color = color;
         }
-        self.last_index = index;
-        self.last_color = color;
     }
 }
 
@@ -89,10 +114,10 @@ pub trait SyntaxWriter {
     fn write_lint(&self, writer: &mut LintWriter);
 }
 
-pub fn write(paragraph: &dyn Paragraph) -> LintWriter {
+pub fn write_lint(paragraph: &dyn Paragraph) -> LintData {
     let mut lint_writer = LintWriter::new();
     paragraph.write_lint(&mut lint_writer);
-    lint_writer
+    lint_writer.into_data()
 }
 
 // pub fn write_all(tree: &Vec<Box<dyn Paragraph>>) -> Vec<Vec<Lint>> {

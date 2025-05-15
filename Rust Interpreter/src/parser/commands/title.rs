@@ -1,15 +1,11 @@
-use std::{
-    any::Any,
-    hint::black_box,
-    mem::{self},
-};
+use std::{any::Any, mem};
 
 use bstr::{ByteSlice, ByteVec};
 // use parking_lot::{Mutex, MutexGuard};
 
 use super::{
     close_data, CloseData, Context, FailReason, Import, Paragraph, Parsable, ParseTreeObj,
-    ReturnType, ReturnTypeSet, RwLock, Slice, Step_Continue,
+    ReturnType, RwLock, Slice, Step_Continue,
 };
 
 #[derive(Debug)]
@@ -29,12 +25,14 @@ pub struct ImportData {
 pub struct TitleData {
     /// the poem title
     pub title: Vec<u8>,
+    /// title is trimmed
+    pub title_length: usize,
     /// the author names
     pub authors: Vec<AuthorData>,
     // the imports: (type, position, length)
     pub imports: Vec<ImportData>,
-    // the start of "by"
-    pub by_start: usize,
+    //
+    pub by_section_length: usize,
 }
 
 #[derive(Default, Debug)]
@@ -58,6 +56,7 @@ impl Title {
                 let mut this = self.inner.write();
                 this.title.push_str(title.str.trim());
                 this.title.push_str(space);
+                this.title_length += title.end();
             }
 
             if space.len() > 1 {
@@ -81,7 +80,8 @@ impl Title {
             let (word, rest2) = rest.get_next_word_arg();
 
             if word.str == b"by" {
-                self.inner.write().by_start = word.pos;
+                self.inner.write().by_section_length = 2;
+                // self.inner.write().by_start = word.pos;
                 return rest2;
             }
 
@@ -99,30 +99,36 @@ impl Title {
         }
     }
 
-    async fn parse_authors(&self, co: &impl Context, slice: Slice<'_>) {
+    async fn parse_authors(&self, co: &impl Context, mut curr_slice: Slice<'_>) {
         let mut parsed_first = false;
-        let mut curr_slice = slice;
         let mut sep: &[u8] = b"";
         let mut author_data = AuthorData {
             name: Vec::new(),
-            pos: slice.pos,
+            pos: curr_slice.pos,
             length: 0,
         };
         while curr_slice.len() > 0 {
             let slice;
             (slice, curr_slice) = curr_slice.get_next_slice();
             // if is separator
+
+            // println!("{}", str::from_utf8(slice.str).unwrap());
             if Self::is_separator(slice.str).close_count > 0 {
                 if author_data.name.len() > 0 {
                     sep = b"";
-                    self.inner.write().authors.push(mem::replace(
+                    let old_author = mem::replace(
                         &mut author_data,
                         AuthorData {
                             name: Vec::new(),
-                            pos: slice.pos,
+                            pos: 0,
                             length: 0,
                         },
-                    ));
+                    );
+                    {
+                        let mut this = self.inner.write();
+                        this.authors.push(old_author);
+                        this.by_section_length = slice.pos - this.title_length;
+                    }
                     Step_Continue!(co, self, slice.pos, "{} parsed an author");
                     if parsed_first {
                         let inner_lock = self.inner.read();
@@ -134,6 +140,9 @@ impl Title {
                 }
             //author name
             } else {
+                if author_data.pos == 0 {
+                    author_data.pos = slice.pos;
+                }
                 author_data.name.push_str(sep);
                 author_data.name.push_str(slice.str);
                 author_data.length = slice.end() - author_data.pos;
@@ -141,8 +150,12 @@ impl Title {
             }
         }
         // add last author
-        if author_data.name.len() > 0 {
-            self.inner.write().authors.push(author_data);
+        {
+            let mut this = self.inner.write();
+            if author_data.name.len() > 0 {
+                this.authors.push(author_data);
+            }
+            this.by_section_length = curr_slice.end() - this.title_length;
         }
     }
 

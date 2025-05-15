@@ -6,6 +6,7 @@ use std::{hint::black_box, mem};
 use parser::{
     javascript_writer::{self},
     lisp_like_writer::{self},
+    syntax_writer::term_writer::TermWriter,
     ParserSource,
 };
 
@@ -88,7 +89,7 @@ fn main() {
 
     // let k = mem::size_of::<Mutex<u64>>();
 
-    let debug_program = false;
+    let debug_program = true;
 
     let source = ParserSource::from_stdin();
     let parser = Parser::new(source);
@@ -133,18 +134,31 @@ fn debug(parser: Parser) {
     // let mut last_step = None;
     while let Some(step) = debugger.next() {
         println!("{:?}", step);
-        for paragraph in debugger.get_source().get_iter() {
-            println!("{:?}", str::from_utf8(paragraph).unwrap());
-        }
-        println!("{}", javascript_writer::write_all(&debugger.tree()));
         println!("{}", lisp_like_writer::write_all(&debugger.tree()));
+
+        let mut writer = TermWriter::new();
+        while writer.step(&debugger.tree()) {
+            let str = writer.next(&debugger.get_source());
+            println!("{}", str);
+        }
+        // for paragraph in debugger.get_source().get_iter() {
+        //     println!("{:?}", str::from_utf8(paragraph).unwrap());
+        // }
+        println!("{}", javascript_writer::write_all(&debugger.tree()));
+        println!("--------------------------------");
     }
 }
 
 fn run(parser: Parser) {
     let parser_data = parser.run();
 
-    println!("{:?}", parser_data.source);
+    println!("--------------------------------");
+    // println!("{:?}", parser_data.source);
+    let mut writer = TermWriter::new();
+    while writer.step(&parser_data.tree) {
+        let str = writer.next(&parser_data.source);
+        println!("{}", str);
+    }
     println!("{}", javascript_writer::write_all(&parser_data.tree));
     println!("{}", lisp_like_writer::write_all(&parser_data.tree));
 }

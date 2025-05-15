@@ -56,6 +56,10 @@ impl ParserSource {
     pub fn get_iter(&self) -> impl Iterator<Item = &[u8]> {
         self.paragraphs.iter().map(|e| e.as_slice())
     }
+
+    pub fn get_source(&self, index: usize) -> Option<&[u8]> {
+        self.paragraphs.get(index).map(|e| e.as_slice())
+    }
 }
 
 impl ParserSource {
