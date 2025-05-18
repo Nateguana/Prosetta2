@@ -1,4 +1,5 @@
 mod none;
+mod paragraph_start;
 mod title;
 
 use super::{commands, Paragraph};
@@ -9,7 +10,5 @@ pub trait LispWriter {
 }
 
 pub fn write_all(tree: &Vec<Box<dyn Paragraph>>) -> String {
-    tree.into_iter()
-        .map(|par| par.write_lisp())
-        .join("\n\n")
+    tree.into_iter().map(|par| par.write_lisp()).join("\n\n")
 }

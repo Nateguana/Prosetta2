@@ -1,8 +1,9 @@
 use smol::lock::RwLockReadGuard;
 
-use crate::parser::commands::title::TitleData;
-
-use super::{commands::title::Title, LintColor, LintWriter, SyntaxWriter};
+use super::{
+    commands::title::{Title, TitleData},
+    LintColor, LintWriter, SyntaxWriter,
+};
 
 impl SyntaxWriter for Title {
     fn write_lint(&self, writer: &mut LintWriter) {

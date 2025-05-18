@@ -4,8 +4,8 @@ use bstr::{ByteSlice, ByteVec};
 // use parking_lot::{Mutex, MutexGuard};
 
 use super::{
-    close_data, CloseData, Context, FailReason, Import, Paragraph, Parsable, ParseTreeObj,
-    ReturnType, RwLock, Slice, Step_Continue,
+    close_data, CloseData, Context, FailReason, Import, ImportData, ImportFinder, Paragraph,
+    Parsable, ParseTreeObj, ReturnType, RwLock, Slice, Step_Continue,
 };
 
 #[derive(Debug)]
@@ -13,12 +13,6 @@ pub struct AuthorData {
     pub name: Vec<u8>,
     pub pos: usize,
     pub length: usize,
-}
-#[derive(Debug)]
-pub struct ImportData {
-    pub name: Import,
-    pub pos: usize,
-    pub length: u8,
 }
 
 #[derive(Default, Debug)]
@@ -35,14 +29,18 @@ pub struct TitleData {
     pub by_section_length: usize,
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct Title {
     pub inner: RwLock<TitleData>,
+    pub index: usize,
 }
 
 impl Title {
-    pub fn new() -> Self {
-        Default::default()
+    pub fn new(index: usize) -> Self {
+        Self {
+            inner: Default::default(),
+            index,
+        }
     }
     ///add title data and returns slice after by
     async fn find_title<'a>(&self, co: &impl Context, slice: Slice<'a>) -> Slice<'a> {
@@ -58,6 +56,12 @@ impl Title {
                 this.title.push_str(space);
                 this.title_length += title.end();
             }
+
+            //  if co.is_debug() {
+            //     crate::ghidra_marker!("rsi");
+            // } else {
+            //     crate::ghidra_marker!("esi");
+            // }
 
             if space.len() > 1 {
                 Step_Continue!(
@@ -85,21 +89,19 @@ impl Title {
                 return rest2;
             }
 
-            // let mut test = Vec::new();
-
-            // std::io::Write::write(&mut test, b"this should show up").unwrap();
-
-            // black_box(test);
-
-            // black_box(unsafe {
-            //     black_box(std::arch::asm!("mov esi, esi"));
-            // });
+            // if co.is_debug() {
+            //     crate::ghidra_marker!("rdi");
+            // } else {
+            //     crate::ghidra_marker!("edi");
+            // }
 
             curr_slice = rest;
         }
     }
 
     async fn parse_authors(&self, co: &impl Context, mut curr_slice: Slice<'_>) {
+        let mut import_finder = ImportFinder::new(Import::get_all());
+
         let mut parsed_first = false;
         let mut sep: &[u8] = b"";
         let mut author_data = AuthorData {
@@ -114,30 +116,24 @@ impl Title {
 
             // println!("{}", str::from_utf8(slice.str).unwrap());
             if Self::is_separator(slice.str).close_count > 0 {
-                if author_data.name.len() > 0 {
-                    sep = b"";
-                    let old_author = mem::replace(
-                        &mut author_data,
-                        AuthorData {
-                            name: Vec::new(),
-                            pos: 0,
-                            length: 0,
-                        },
-                    );
-                    {
-                        let mut this = self.inner.write();
-                        this.authors.push(old_author);
-                        this.by_section_length = slice.pos - this.title_length;
-                    }
-                    Step_Continue!(co, self, slice.pos, "{} parsed an author");
-                    if parsed_first {
-                        let inner_lock = self.inner.read();
-                        let name = inner_lock.authors.last().unwrap().name.as_slice();
-                        Self::find_imports(name);
-                        Step_Continue!(co, self, slice.pos, "{} parsed imports for author");
-                    }
-                    parsed_first = true;
-                }
+                sep = b"";
+                let old_author = mem::replace(
+                    &mut author_data,
+                    AuthorData {
+                        name: Vec::new(),
+                        pos: 0,
+                        length: 0,
+                    },
+                );
+                self.add_author(
+                    co,
+                    &mut import_finder,
+                    &mut parsed_first,
+                    old_author,
+                    slice.pos,
+                )
+                .await;
+
             //author name
             } else {
                 if author_data.pos == 0 {
@@ -149,13 +145,47 @@ impl Title {
                 sep = b" ";
             }
         }
+
         // add last author
-        {
-            let mut this = self.inner.write();
-            if author_data.name.len() > 0 {
+        self.add_author(
+            co,
+            &mut import_finder,
+            &mut parsed_first,
+            author_data,
+            curr_slice.end(),
+        )
+        .await;
+
+        let mut this = self.inner.write();
+        this.by_section_length = curr_slice.end() - this.title_length;
+    }
+
+    async fn add_author(
+        &self,
+        co: &impl Context,
+        import_finder: &mut ImportFinder,
+        parsed_first: &mut bool,
+        author_data: AuthorData,
+        curr_pos: usize,
+    ) {
+        if author_data.name.len() > 0 {
+            {
+                let mut this = self.inner.write();
                 this.authors.push(author_data);
+                this.by_section_length = curr_pos - this.title_length;
             }
-            this.by_section_length = curr_slice.end() - this.title_length;
+            Step_Continue!(co, self, curr_pos, "{} parsed an author");
+            if *parsed_first {
+                {
+                    let mut this = self.inner.write();
+                    let last_author = this.authors.last().unwrap();
+                    let name_slice = Slice::from(last_author.name.as_slice(), last_author.pos);
+                    let import_vec = import_finder.find(name_slice);
+                    this.imports.extend(import_vec);
+                }
+                Step_Continue!(co, self, curr_pos, "{} parsed imports for author");
+            }
+            *parsed_first = true;
         }
     }
 
@@ -176,8 +206,6 @@ impl Title {
             close_data::get_close_data(str)
         }
     }
-
-    fn find_imports(str: &[u8]) {}
 }
 
 impl ParseTreeObj for Title {
@@ -213,4 +241,8 @@ impl Parsable for Title {
     }
 }
 
-impl Paragraph for Title {}
+impl Paragraph for Title {
+    fn get_index(&self) -> usize {
+        self.index
+    }
+}

@@ -1,5 +1,6 @@
 mod none;
 mod title;
+mod paragraph_start;
 
 use super::{commands, Paragraph};
 

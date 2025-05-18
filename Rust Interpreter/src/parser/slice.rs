@@ -29,6 +29,10 @@ impl<'a> Slice<'a> {
         Slice { str: buf, pos: 0 }
     }
 
+    pub fn from(buf: &'a [u8], pos: usize) -> Self {
+        Slice { str: buf, pos }
+    }
+
     pub fn empty() -> Self {
         Slice { str: &[], pos: 0 }
     }

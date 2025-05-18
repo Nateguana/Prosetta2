@@ -18,7 +18,7 @@ impl LispWriter for Title {
             });
 
             let imports_str = this.imports.iter().fold(String::new(), |acc, data| {
-                let import_str = data.name.name();
+                let import_str = data.import.name();
                 format!("{acc} \"{import_str}\"@{}$${}", data.pos, data.length)
             });
             format!(

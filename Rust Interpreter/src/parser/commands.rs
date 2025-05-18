@@ -1,4 +1,5 @@
 pub mod none;
+pub mod paragraph_start;
 pub mod title;
 
 use std::{any::Any, fmt::Debug};
@@ -6,10 +7,11 @@ use std::{any::Any, fmt::Debug};
 use super::syntax_writer::SyntaxWriter;
 #[allow(unused)]
 use super::{
+    alias_finder::ImportFinder,
     close_data::{self, CloseData},
     context::{Context, Step_Continue},
     fail_reason::FailReason,
-    imports::Import,
+    imports::{Import, ImportData},
     javascript_writer::JavascriptWriter,
     lisp_like_writer::LispWriter,
     rwlock::{RwLock, RwLockWriteGuard, RwLockWriteGuardArc},
@@ -91,4 +93,6 @@ pub trait CommandData: Sync + Send + Any {
 //     Failed(FailReason),
 // }
 #[async_trait::async_trait]
-pub trait Paragraph: Parsable {}
+pub trait Paragraph: Parsable {
+    fn get_index(&self) -> usize;
+}

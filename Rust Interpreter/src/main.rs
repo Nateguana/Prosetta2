@@ -1,7 +1,8 @@
 #![cfg(not(feature = "wasm"))]
 
-use std::{hint::black_box, mem};
+use std::{env::args, hint::black_box, mem};
 
+use itertools::Itertools;
 // use parking_lot::lock_api::Mutex;
 use parser::{
     javascript_writer::{self},
@@ -89,7 +90,7 @@ fn main() {
 
     // let k = mem::size_of::<Mutex<u64>>();
 
-    let debug_program = true;
+    let debug_program = !args().skip(1).any(|e| e.contains("r"));
 
     let source = ParserSource::from_stdin();
     let parser = Parser::new(source);
@@ -210,3 +211,14 @@ fn run(parser: Parser) {
 //     was name les int marioooo. int luigi.!
 //     was name2 mor int marioooo. int luigi.!
 //     "];
+
+#[macro_export]
+macro_rules! ghidra_marker {
+    ($reg:literal) => {
+        unsafe {
+            // let f = concat!("mov ", $reg, ",", $reg);
+            std::arch::asm!(concat!("mov ", $reg, ",", $reg));
+            // std::arch::asm!("mov {0}, {0}", inout("eax") _a);
+        };
+    };
+}

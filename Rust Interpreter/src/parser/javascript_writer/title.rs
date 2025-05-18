@@ -3,7 +3,7 @@ use itertools::Itertools;
 use std::str;
 
 impl JavascriptWriter for Title {
-    fn write_javascript(&self) -> String {
+    fn write_javascript(&self, _indent: u8) -> String {
         let this = self.inner.read();
         let title_str = str::from_utf8(&this.title).unwrap();
         let mut authors = this
@@ -30,7 +30,7 @@ impl JavascriptWriter for Title {
         };
 
         let imports_str = {
-            let mut imports = this.imports.iter().map(|e| e.name.name());
+            let mut imports = this.imports.iter().map(|e| e.import.name());
             match imports.len() {
                 0 => "".to_string(),
                 len => format!(

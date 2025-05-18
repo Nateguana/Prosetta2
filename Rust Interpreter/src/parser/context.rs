@@ -31,6 +31,7 @@ pub trait Context: Send + Sync {
 
     fn get_parent(&self) -> &dyn ParseTreeObj;
     fn get_level(&self) -> u8;
+    fn is_debug(&self) -> bool;
     // async fn step_match(&self, this: &'static str, child: &dyn Command, pos: usize);
     // async fn step_fail(&self, this: &'static str, child: &dyn Command, pos: usize);
 }
@@ -156,6 +157,9 @@ impl<'a, 'b> Context for DebugContext<'a, 'b> {
     fn get_level(&self) -> u8 {
         self.inner.get_level()
     }
+    fn is_debug(&self) -> bool {
+        true
+    }
     // async fn step_paragraph(
     //     &self,
     //     this: &'static str,
@@ -208,6 +212,10 @@ impl<'a> Context for RunContext<'a> {
 
     fn get_level(&self) -> u8 {
         self.level
+    }
+    
+    fn is_debug(&self) -> bool {
+        false
     }
 }
 

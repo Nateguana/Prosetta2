@@ -28,7 +28,7 @@ pub(crate) mod javascript_writer;
 pub(crate) mod lisp_like_writer;
 pub(crate) mod syntax_writer;
 
-use commands::{title::Title, Paragraph};
+use commands::{paragraph_start, title::Title, Paragraph};
 use slice::Slice;
 pub use source::ParserSource;
 
@@ -103,6 +103,7 @@ impl Parser {
 
         let mut parser_stepper = ParserSourceStepper::new();
 
+        let paragraph_index = 0;
         loop {
             parser_stepper.step(&mut source.write());
             if let Some(paragraph) = parser_stepper.next(&source.read()) {
@@ -110,7 +111,7 @@ impl Parser {
                 if !has_title {
                     {
                         let mut tree_lock = tree.write();
-                        let title = Box::new(Title::new()) as Box<dyn Paragraph>;
+                        let title = Box::new(Title::new(paragraph_index)) as Box<dyn Paragraph>;
                         tree_lock.push(title);
                     }
                     let title_lock = tree.read();

@@ -43,3 +43,4 @@ dwarf-debug-info = true
 
 [profile.release]
 debug = true
+lto = true

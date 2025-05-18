@@ -1,6 +1,10 @@
 use std::{collections::VecDeque, mem};
 
-use super::{commands::AliasName, imports::Import, slice::Slice};
+use super::{
+    commands::AliasName,
+    imports::{Import, ImportData, ImportParseData},
+    slice::Slice,
+};
 
 #[derive(Clone)]
 struct AliasParseData {
@@ -44,24 +48,7 @@ impl AliasFinder {
     }
 }
 
-#[derive(Clone)]
-pub struct ImportParseData {
-    alias: AliasName,
-    import: Import,
-    index: u8,
-}
-
-impl ImportParseData {
-    pub const fn new(import: Import, alias: AliasName) -> Self {
-        Self {
-            alias,
-            import,
-            index: 0,
-        }
-    }
-}
-
-struct ImportFinder {
+pub struct ImportFinder {
     arr: Vec<ImportParseData>,
 }
 
@@ -71,22 +58,29 @@ impl ImportFinder {
     }
 
     /// find imports
-    pub fn find(&mut self, slice: Slice) -> Vec<(usize, Import)> {
+    pub fn find(&mut self, slice: Slice) -> Vec<ImportData> {
         let mut ret = Vec::new();
 
         for j in 0..slice.len() {
-            let char = slice.str[j];
+            let char = slice.str[j].to_ascii_lowercase();
             if char != b'\'' {
                 let mut index = 0;
                 while index < self.arr.len() {
                     let alias = &mut self.arr[index];
-                    //
+                    // check if letter matches
                     if alias.alias[alias.index as usize] == char {
                         alias.index += 1;
 
                         // import has finished
                         if alias.index >= 3 {
-                            let element = (slice.pos + j, self.arr.swap_remove(index).import);
+                            let import_parse_data = self.arr.swap_remove(index);
+                            let element = ImportData {
+                                pos: slice.pos + j - 2,
+                                alias: import_parse_data.alias,
+                                import: import_parse_data.import,
+                                length: 3,
+                            };
+
                             ret.push(element);
 
                             // imports cannot intersect
