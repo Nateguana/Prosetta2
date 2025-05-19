@@ -1,5 +1,7 @@
 use std::any::Any;
 
+use smol::lock::RwLockReadGuard;
+
 use super::{
     close_data, CloseData, Context, FailReason, Import, ImportData, ImportFinder, Paragraph,
     Parsable, ParseTreeObj, ReturnType, RwLock, Slice, Stat, Step_Continue,
@@ -17,6 +19,11 @@ impl ParagraphStart {
             children: Default::default(),
             index,
         }
+    }
+
+    pub fn get_children(&self) -> &Vec<Box<dyn Stat>> {
+        // &*self.children.read()
+        RwLockReadGuard::from(value)
     }
 }
 

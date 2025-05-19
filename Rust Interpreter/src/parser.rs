@@ -22,7 +22,7 @@ mod slice;
 mod source;
 mod types;
 
-use rwlock::{ArcRwLock, RwLockReadGuardArc};
+use rwlock::{ArcRwLock, RwLockReadGuard};
 
 pub(crate) mod javascript_writer;
 pub(crate) mod lisp_like_writer;
@@ -33,6 +33,7 @@ use slice::Slice;
 pub use source::ParserSource;
 
 use source::ParserSourceStepper;
+use tokio::runtime::Builder;
 // use source::ParserSourceIter;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -74,7 +75,8 @@ impl Parser {
 
         let result = Parser::start(context, self.source.clone(), self.tree.clone());
         // let res2 = result.into_future();
-        smol::block_on(result);
+        let rt = Builder::new_current_thread().build().unwrap();
+        rt.block_on(result);
         ParserData {
             source: self.source.into_inner(),
             tree: self.tree.into_inner(),
@@ -169,11 +171,11 @@ impl ParserDebug {
         }
     }
 
-    pub fn tree(&self) -> RwLockReadGuardArc<Vec<Box<dyn Paragraph>>> {
+    pub fn tree(&self) -> RwLockReadGuard<Vec<Box<dyn Paragraph>>> {
         self.parser.tree.read()
     }
 
-    pub fn get_source(&self) -> RwLockReadGuardArc<ParserSource> {
+    pub fn get_source(&self) -> RwLockReadGuard<ParserSource> {
         self.parser.source.read()
     }
 

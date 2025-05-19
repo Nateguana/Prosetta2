@@ -1,28 +1,35 @@
 use std::sync::Arc;
 
-use smol::lock;
+use tokio::sync;
 
 #[allow(unused)]
-pub(crate) use lock::{RwLockReadGuard, RwLockReadGuardArc, RwLockWriteGuard, RwLockWriteGuardArc};
+pub(crate) use sync::{RwLockReadGuard, RwLockWriteGuard};
 
 #[derive(Debug, Default)]
 pub struct RwLock<T> {
-    inner: lock::RwLock<T>,
+    inner: sync::RwLock<T>,
 }
 
 impl<T> RwLock<T> {
-    pub const fn new(t: T) -> Self {
+    pub fn new(t: T) -> Self {
         Self {
-            inner: lock::RwLock::new(t),
+            inner: sync::RwLock::new(t),
         }
     }
 
-    pub fn read(&self) -> lock::RwLockReadGuard<'_, T> {
+    pub fn read(&self) -> sync::RwLockReadGuard<'_, T> {
         self.inner.try_read().unwrap()
     }
 
-    pub fn write(&self) -> lock::RwLockWriteGuard<'_, T> {
+    pub fn write(&self) -> sync::RwLockWriteGuard<'_, T> {
         self.inner.try_write().unwrap()
+    }
+
+    pub fn read_map<F, U: ?Sized>(&self, f: F) -> sync::RwLockReadGuard<'_, U>
+    where
+        F: FnOnce(&T) -> &U,
+    {
+        RwLockReadGuard::map(self.read(), f)
     }
 
     pub fn into_inner(self) -> T {
@@ -32,22 +39,22 @@ impl<T> RwLock<T> {
 
 #[derive(Debug, Default)]
 pub struct ArcRwLock<T> {
-    inner: Arc<lock::RwLock<T>>,
+    inner: Arc<sync::RwLock<T>>,
 }
 
 impl<T> ArcRwLock<T> {
     pub fn new(t: T) -> Self {
         Self {
-            inner: Arc::new(lock::RwLock::new(t)),
+            inner: Arc::new(sync::RwLock::new(t)),
         }
     }
 
-    pub fn read(&self) -> lock::RwLockReadGuardArc<T> {
-        self.inner.try_read_arc().unwrap()
+   pub fn read(&self) -> sync::RwLockReadGuard<'_, T> {
+        self.inner.try_read().unwrap()
     }
 
-    pub fn write(&self) -> lock::RwLockWriteGuardArc<T> {
-        self.inner.try_write_arc().unwrap()
+    pub fn write(&self) -> sync::RwLockWriteGuard<'_, T> {
+        self.inner.try_write().unwrap()
     }
 
     pub fn into_inner(self) -> T {

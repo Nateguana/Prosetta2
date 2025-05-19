@@ -14,7 +14,7 @@ use super::{
     imports::{Import, ImportData},
     javascript_writer::JavascriptWriter,
     lisp_like_writer::LispWriter,
-    rwlock::{RwLock, RwLockWriteGuard, RwLockWriteGuardArc},
+    rwlock::{RwLock, RwLockWriteGuard},
     slice::Slice,
     types::{ReturnType, ReturnTypeSet},
 };
@@ -32,6 +32,8 @@ pub trait ParseTreeObj: Sync + Send + Any + Debug {
     fn get_name(&self) -> String {
         self.name().to_string()
     }
+
+    // fn get_children(&self);
 }
 #[async_trait::async_trait]
 pub trait Parsable: ParseTreeObj + JavascriptWriter + LispWriter + SyntaxWriter {
@@ -57,21 +59,11 @@ pub trait Aliased: Parsable {
 }
 
 #[async_trait::async_trait]
-pub trait Stat: Parsable {
-    fn get_return_types(&self) -> ReturnTypeSet;
-
-    fn is_none(&self) -> bool {
-        false
-    }
-}
+pub trait Stat: Parsable {}
 
 #[async_trait::async_trait]
 pub trait Expr: Parsable {
     fn get_return_types(&self) -> ReturnTypeSet;
-
-    fn is_none(&self) -> bool {
-        false
-    }
 }
 
 #[async_trait::async_trait]
