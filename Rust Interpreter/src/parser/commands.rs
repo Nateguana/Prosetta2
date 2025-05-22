@@ -2,9 +2,12 @@ pub mod none;
 pub mod paragraph_start;
 pub mod title;
 
+pub mod addition;
+pub mod print;
+pub mod subtract;
+
 use std::{any::Any, fmt::Debug};
 
-use super::syntax_writer::SyntaxWriter;
 #[allow(unused)]
 use super::{
     alias_finder::ImportFinder,
@@ -12,12 +15,15 @@ use super::{
     context::{Context, Step_Continue},
     fail_reason::FailReason,
     imports::{Import, ImportData},
-    javascript_writer::JavascriptWriter,
-    lisp_like_writer::LispWriter,
     rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     slice::Slice,
+    tree_writer::{
+        lint_writer::{LintColor, LintWriter},
+        TreeWriter,
+    },
     types::{ReturnType, ReturnTypeSet},
 };
+// use super::{child_vec::ChildVec, syntax_writer::SyntaxWriter};
 
 pub type AliasName = [u8; 3];
 
@@ -36,7 +42,7 @@ pub trait ParseTreeObj: Sync + Send + Any + Debug {
     // fn get_children(&self);
 }
 #[async_trait::async_trait]
-pub trait Parsable: ParseTreeObj + JavascriptWriter + LispWriter + SyntaxWriter {
+pub trait Parsable: ParseTreeObj + TreeWriter {
     async fn try_parse(
         &self,
         co: impl Context,
@@ -87,6 +93,5 @@ pub trait CommandData: Sync + Send + Any {
 #[async_trait::async_trait]
 pub trait Paragraph: Parsable {
     fn get_index(&self) -> usize;
-
-    fn get_children(&self) -> RwLockReadGuard<'_, Vec<Box<dyn Stat>>>;
+    // fn get_children(&self) -> ChildVec<'_, dyn Stat>;
 }

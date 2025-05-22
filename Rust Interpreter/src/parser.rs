@@ -21,12 +21,11 @@ mod rwlock;
 mod slice;
 mod source;
 mod types;
+mod child_vec;
 
 use rwlock::{ArcRwLock, RwLockReadGuard};
 
-pub(crate) mod javascript_writer;
-pub(crate) mod lisp_like_writer;
-pub(crate) mod syntax_writer;
+pub(crate) mod tree_writer;
 
 use commands::{paragraph_start, title::Title, Paragraph};
 use slice::Slice;

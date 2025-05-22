@@ -1,11 +1,3 @@
-mod none;
-mod paragraph_start;
-mod title;
-
-use super::{commands, Paragraph, RwLockReadGuard};
-
-pub(crate) mod term_writer;
-
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum LintColor {
     Ignore,
@@ -16,20 +8,6 @@ pub enum LintColor {
     TitleSeparator,
 }
 
-// pub struct Lint {
-//     position: usize,
-//     // size: usize,
-//     color: LintColor,
-// }
-
-// impl Lint {
-//     pub fn new(color: LintColor, position: usize, size: usize) -> Self {
-//         Self {
-//             position,
-//             color,
-//         }
-//     }
-// }
 
 #[derive(Debug)]
 pub struct LintData {
@@ -110,17 +88,3 @@ impl LintWriter {
         }
     }
 }
-
-pub trait SyntaxWriter {
-    fn write_lint(&self, writer: &mut LintWriter);
-}
-
-pub fn write_lint(paragraph: &dyn Paragraph) -> LintData {
-    let mut lint_writer = LintWriter::new();
-    paragraph.write_lint(&mut lint_writer);
-    lint_writer.into_data()
-}
-
-// pub fn write_all(tree: &Vec<Box<dyn Paragraph>>) -> Vec<Vec<Lint>> {
-//     tree.into_iter().map(|par| write(par))
-// }

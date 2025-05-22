@@ -5,9 +5,7 @@ use std::{env::args, hint::black_box, mem};
 use itertools::Itertools;
 // use parking_lot::lock_api::Mutex;
 use parser::{
-    javascript_writer::{self},
-    lisp_like_writer::{self},
-    syntax_writer::term_writer::TermWriter,
+    tree_writer::{term_writer::TermWriter, TreeAllWriter, TreeWriter},
     ParserSource,
 };
 
@@ -135,7 +133,7 @@ fn debug(parser: Parser) {
     // let mut last_step = None;
     while let Some(step) = debugger.next() {
         println!("{:?}", step);
-        println!("{}", lisp_like_writer::write_all(&debugger.tree()));
+        println!("{}", TreeAllWriter::write_all_lisp(&debugger.tree()));
 
         let mut writer = TermWriter::new();
         while writer.step(&debugger.tree()) {
@@ -145,7 +143,7 @@ fn debug(parser: Parser) {
         // for paragraph in debugger.get_source().get_iter() {
         //     println!("{:?}", str::from_utf8(paragraph).unwrap());
         // }
-        println!("{}", javascript_writer::write_all(&debugger.tree()));
+        println!("{}", TreeAllWriter::write_all_javascript(&debugger.tree()));
         println!("--------------------------------");
     }
 }
@@ -160,8 +158,8 @@ fn run(parser: Parser) {
         let str = writer.next(&parser_data.source);
         println!("{}", str);
     }
-    println!("{}", javascript_writer::write_all(&parser_data.tree));
-    println!("{}", lisp_like_writer::write_all(&parser_data.tree));
+    println!("{}", TreeAllWriter::write_all_javascript(&parser_data.tree));
+    println!("{}", TreeAllWriter::write_all_lisp(&parser_data.tree));
 }
 // #[allow(dead_code)]
 // static MILO_POEM: [&[u8]; 2] = [

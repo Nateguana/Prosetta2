@@ -1,8 +1,10 @@
 use std::any::Any;
 
+use crate::parser::tree_writer::TreeWriter;
+
 use super::{
-    close_data, CloseData, Context, FailReason, Import, ImportData, ImportFinder, Paragraph,
-    Parsable, ParseTreeObj, ReturnType, RwLock, RwLockReadGuard, Slice, Stat, Step_Continue,
+    Context, FailReason, LintWriter, Paragraph, Parsable, ParseTreeObj, ReturnType, RwLock, Slice,
+    Stat,
 };
 
 #[derive(Debug)]
@@ -46,7 +48,40 @@ impl Paragraph for ParagraphStart {
         self.index
     }
 
-    fn get_children(&self) -> RwLockReadGuard<'_, Vec<Box<dyn Stat>>> {
-        self.children.read()
+    // fn get_children(&self) -> RwLockReadGuard<'_, Vec<Box<dyn Stat>>> {
+    //     self.children.read()
+    // }
+}
+
+impl TreeWriter for ParagraphStart {
+    fn write_lisp(&self) -> String {
+        let children = self.children.read();
+        let index = self.index;
+
+        let children_str = children.iter().fold(String::new(), |acc, data| {
+            let child_str = data.write_lisp();
+            format!("{acc} {child_str}")
+        });
+
+        format!("(paragraph {index}{children_str})")
+    }
+
+    fn write_lint(&self, writer: &mut LintWriter) {
+        let children = self.children.read();
+
+        for child in children.iter() {
+            child.write_lint(writer);
+        }
+    }
+
+    fn write_javascript(&self, _indent: u8) -> String {
+        let children = self.children.read();
+        let mut ret = format!("// Paragraph {}", self.index);
+
+        for child in children.iter() {
+            ret += &format!("\n{}", child.write_javascript(0));
+        }
+
+        ret
     }
 }

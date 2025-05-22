@@ -1,11 +1,13 @@
 use std::{any::Any, mem};
 
 use bstr::{ByteSlice, ByteVec};
-// use parking_lot::{Mutex, MutexGuard};
+use itertools::Itertools;
+use std::str;
 
 use super::{
-    close_data, CloseData, Context, FailReason, Import, ImportData, ImportFinder, Paragraph,
-    Parsable, ParseTreeObj, ReturnType, RwLock, RwLockReadGuard, Slice, Stat, Step_Continue,
+    close_data, CloseData, Context, FailReason, Import, ImportData, ImportFinder, LintColor,
+    LintWriter, Paragraph, Parsable, ParseTreeObj, ReturnType, RwLock, RwLockReadGuard, Slice,
+    Step_Continue, TreeWriter,
 };
 
 #[derive(Debug)]
@@ -245,8 +247,109 @@ impl Paragraph for Title {
     fn get_index(&self) -> usize {
         self.index
     }
+}
 
-    fn get_children(&self) -> RwLockReadGuard<'_, Vec<Box<dyn Stat>>> {
-        unreachable!()
+impl TreeWriter for Title {
+    fn write_lisp(&self) -> String {
+        let this = self.inner.read();
+        // escape potetial " in title
+        let title_str = str::from_utf8(&this.title).unwrap().replace("\"", "\\\"");
+        let title_length = this.title_length;
+        let by_section_length = this.by_section_length;
+
+        if by_section_length == 0 {
+            format!("(title \"{title_str}\"$${title_length})")
+        } else {
+            let authors_str = this.authors.iter().fold(String::new(), |acc, data| {
+                let author_str = str::from_utf8(&data.name).unwrap();
+                format!("{acc} \"{author_str}\"@{}$${}", data.pos, data.length)
+            });
+
+            let imports_str = this.imports.iter().fold(String::new(), |acc, data| {
+                let import_str = data.import.name();
+                format!("{acc} \"{import_str}\"@{}$${}", data.pos, data.length)
+            });
+            format!(
+            "(title \"{title_str}\" (by${title_length}$${by_section_length} (authors{authors_str}) (imports{imports_str})))",
+            )
+        }
+    }
+
+    fn write_lint(&self, writer: &mut LintWriter) {
+        let this = self.inner.read();
+
+        fn write_authors(writer: &mut LintWriter, this: &RwLockReadGuard<TitleData>) {
+            let mut authors = this.authors.iter().peekable();
+            let mut imports = this.imports.iter().peekable();
+            while let Some(author) = authors.peek() {
+                writer.write_up_to_as(LintColor::TitleSeparator, author.pos);
+                let author_end = author.pos + author.length;
+                while let Some(import) = imports.peek() {
+                    // if import before end -- write that
+                    if import.pos < author_end {
+                        writer.write_up_to_as(LintColor::TitleAuthor, import.pos);
+                        writer.write_as(LintColor::TitleImport, import.length.into());
+                        imports.next();
+                    } else {
+                        break;
+                    }
+                }
+                writer.write_up_to_as(LintColor::TitleAuthor, author_end);
+                authors.next();
+            }
+        }
+
+        writer.write_up_to_as(LintColor::Title, this.title_length);
+        if this.by_section_length > 0 {
+            writer.write_as(LintColor::TitleBy, 2);
+            write_authors(writer, &this);
+            writer.write_up_to_as(
+                LintColor::TitleSeparator,
+                this.title_length + this.by_section_length,
+            );
+        }
+    }
+
+    fn write_javascript(&self, _indent: u8) -> String {
+        let this = self.inner.read();
+        let title_str = str::from_utf8(&this.title).unwrap();
+        let mut authors = this
+            .authors
+            .iter()
+            .map(|e| str::from_utf8(&e.name).unwrap());
+
+        let primary_author_str = {
+            authors
+                .next()
+                .map_or("".to_string(), |name| format!("\nPrimary Author: {name}"))
+        };
+
+        let secondary_authors_str = {
+            let secondary_authors = authors.collect::<Vec<_>>();
+            match secondary_authors.len() {
+                0 => "".to_string(),
+                len => format!(
+                    "\nSecondary Author{}: {}",
+                    if len > 1 { "s" } else { "" },
+                    secondary_authors.join(", ")
+                ),
+            }
+        };
+
+        let imports_str = {
+            let mut imports = this.imports.iter().map(|e| e.import.name());
+            match imports.len() {
+                0 => "".to_string(),
+                len => format!(
+                    "\nImport{}: {}",
+                    if len > 1 { "s" } else { "" },
+                    imports.join(", ")
+                ),
+            }
+        };
+
+        format!(
+            "/*\nTitle: {title_str}{primary_author_str}{secondary_authors_str}{imports_str}\n*/",
+        )
     }
 }
