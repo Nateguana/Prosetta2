@@ -1,8 +1,8 @@
 mod none;
-mod title;
 mod paragraph_start;
+mod title;
 
-use super::{commands, Paragraph};
+use super::{commands, Paragraph, RwLockReadGuard};
 
 pub(crate) mod term_writer;
 

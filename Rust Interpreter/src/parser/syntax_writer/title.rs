@@ -1,8 +1,6 @@
-use smol::lock::RwLockReadGuard;
-
 use super::{
     commands::title::{Title, TitleData},
-    LintColor, LintWriter, SyntaxWriter,
+    LintColor, LintWriter, RwLockReadGuard, SyntaxWriter,
 };
 
 impl SyntaxWriter for Title {

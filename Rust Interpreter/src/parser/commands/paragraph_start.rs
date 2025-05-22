@@ -1,10 +1,8 @@
 use std::any::Any;
 
-use smol::lock::RwLockReadGuard;
-
 use super::{
     close_data, CloseData, Context, FailReason, Import, ImportData, ImportFinder, Paragraph,
-    Parsable, ParseTreeObj, ReturnType, RwLock, Slice, Stat, Step_Continue,
+    Parsable, ParseTreeObj, ReturnType, RwLock, RwLockReadGuard, Slice, Stat, Step_Continue,
 };
 
 #[derive(Debug)]
@@ -19,11 +17,6 @@ impl ParagraphStart {
             children: Default::default(),
             index,
         }
-    }
-
-    pub fn get_children(&self) -> &Vec<Box<dyn Stat>> {
-        // &*self.children.read()
-        RwLockReadGuard::from(value)
     }
 }
 
@@ -51,5 +44,9 @@ impl Parsable for ParagraphStart {
 impl Paragraph for ParagraphStart {
     fn get_index(&self) -> usize {
         self.index
+    }
+
+    fn get_children(&self) -> RwLockReadGuard<'_, Vec<Box<dyn Stat>>> {
+        self.children.read()
     }
 }

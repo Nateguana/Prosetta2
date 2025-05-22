@@ -5,7 +5,7 @@ use bstr::{ByteSlice, ByteVec};
 
 use super::{
     close_data, CloseData, Context, FailReason, Import, ImportData, ImportFinder, Paragraph,
-    Parsable, ParseTreeObj, ReturnType, RwLock, Slice, Step_Continue,
+    Parsable, ParseTreeObj, ReturnType, RwLock, RwLockReadGuard, Slice, Stat, Step_Continue,
 };
 
 #[derive(Debug)]
@@ -244,5 +244,9 @@ impl Parsable for Title {
 impl Paragraph for Title {
     fn get_index(&self) -> usize {
         self.index
+    }
+
+    fn get_children(&self) -> RwLockReadGuard<'_, Vec<Box<dyn Stat>>> {
+        unreachable!()
     }
 }

@@ -14,7 +14,7 @@ use super::{
     imports::{Import, ImportData},
     javascript_writer::JavascriptWriter,
     lisp_like_writer::LispWriter,
-    rwlock::{RwLock, RwLockWriteGuard},
+    rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     slice::Slice,
     types::{ReturnType, ReturnTypeSet},
 };
@@ -87,4 +87,6 @@ pub trait CommandData: Sync + Send + Any {
 #[async_trait::async_trait]
 pub trait Paragraph: Parsable {
     fn get_index(&self) -> usize;
+
+    fn get_children(&self) -> RwLockReadGuard<'_, Vec<Box<dyn Stat>>>;
 }
