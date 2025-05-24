@@ -1,4 +1,9 @@
-use std::{cmp::Ordering, collections::VecDeque, mem, sync::Arc};
+use std::{
+    cmp::Ordering,
+    collections::{HashSet, VecDeque},
+    mem,
+    sync::Arc,
+};
 
 #[path = "../tests/alias_finder.rs"]
 mod tests;
@@ -49,6 +54,7 @@ impl AliasFinderArray {
 pub struct AliasFinder {
     base: Arc<AliasFinderArray>,
     inner: Box<AliasFinderArray>,
+    used_set: HashSet<AliasName>,
     index: u8,
 }
 
@@ -57,6 +63,7 @@ impl AliasFinder {
         Self {
             base,
             inner: Box::new(AliasFinderArray::new()),
+            used_set: HashSet::new(),
             index: 0,
         }
     }
@@ -90,12 +97,18 @@ impl AliasFinder {
                 array.push(alias);
             }
         }
+
+        // add to hashset and remove dublicates
+        ret.retain(|data| self.used_set.insert(data.alias));
+
+        // sort aliases by pos
         ret.sort_by(Self::compare_alias_parse);
         self.index += 1;
         return ret;
     }
 
     fn compare_alias_parse(a: &AliasParseData, b: &AliasParseData) -> Ordering {
+        // calculate score via position math magic
         fn calc(a: &AliasParseData) -> u16 {
             (a.pos[0] as u16) << 8 | (!a.pos[1] as u16)
         }
