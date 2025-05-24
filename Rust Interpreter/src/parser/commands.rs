@@ -52,25 +52,29 @@ pub trait Parsable: ParseTreeObj + TreeWriter {
         Self: Sized;
 }
 
-pub trait Aliased: Parsable {
-    fn alias(&self) -> AliasName;
+#[async_trait::async_trait]
+pub trait Command: Parsable {
+    fn get_return_types(&self) -> ReturnTypeSet;
+}
+
+pub trait Aliased: Command {
+    fn alias() -> AliasName
+    where
+        Self: Sized;
+
+    fn get_alias(&self) -> AliasName;
 
     fn get_name(&self) -> String {
         format!(
             "{} ({})",
-            str::from_utf8(&self.alias()).unwrap(),
+            str::from_utf8(&self.get_alias()).unwrap(),
             self.name().to_string()
         )
     }
 }
 
-#[async_trait::async_trait]
-pub trait Stat: Parsable {}
-
-#[async_trait::async_trait]
-pub trait Expr: Parsable {
-    fn get_return_types(&self) -> ReturnTypeSet;
-}
+// #[async_trait::async_trait]
+// pub trait Stat: Parsable {}
 
 #[async_trait::async_trait]
 pub trait CommandData: Sync + Send + Any {

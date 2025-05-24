@@ -3,13 +3,13 @@ use std::any::Any;
 use crate::parser::tree_writer::TreeWriter;
 
 use super::{
-    Context, FailReason, LintWriter, Paragraph, Parsable, ParseTreeObj, ReturnType, RwLock, Slice,
-    Stat,
+    Command, Context, FailReason, LintWriter, Paragraph, Parsable, ParseTreeObj, ReturnType,
+    RwLock, Slice,
 };
 
 #[derive(Debug)]
 pub struct ParagraphStart {
-    pub children: RwLock<Vec<Box<dyn Stat>>>,
+    pub children: RwLock<Vec<Box<dyn Command>>>,
     pub index: usize,
 }
 

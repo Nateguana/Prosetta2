@@ -10,6 +10,7 @@ pub(crate) use parser_result::{ParserAction, ParserData, ParserStep};
 // use smol::lock::{RwLock, RwLockReadGuardArc};
 // use alias::WordTriggerArena;
 // use bstr::ByteSlice;
+mod alias_data;
 mod alias_finder;
 mod close_data;
 mod commands;

@@ -7,18 +7,26 @@ use super::{
 };
 
 #[derive(Clone)]
-struct AliasParseData {
+pub struct AliasParseData {
     alias: AliasName,
     index: u8,
 }
 
-struct AliasFinder {
-    arr: [VecDeque<AliasParseData>; 26],
+#[derive(Clone)]
+pub struct AliasFinder {
+    arr: Box<[VecDeque<AliasParseData>; 26]>,
 }
 
 impl AliasFinder {
-    pub fn new(arr: [VecDeque<AliasParseData>; 26]) -> Self {
-        Self { arr: arr.clone() }
+    pub fn new() -> Self {
+        Self {
+            arr: Default::default(),
+        }
+    }
+
+    pub fn add(&mut self, alias: AliasName) {
+        let array = self.get_array(alias[0]).unwrap();
+        array.push_back(AliasParseData { alias, index: 0 });
     }
 
     fn add_letter(&mut self, letter: u8) -> Vec<AliasName> {
@@ -28,13 +36,13 @@ impl AliasFinder {
             let list = mem::take(array);
             for mut alias in list {
                 alias.index += 1;
-                if alias.index == 2 {
+                if alias.index == 3 {
                     ret.push(alias.alias)
                 } else {
                     let array = self.get_array(alias.alias[alias.index as usize]).unwrap();
                     match alias.index {
-                        1 => array.push_front(alias),
-                        0 => array.push_back(alias),
+                        2 => array.push_front(alias),
+                        1 => array.push_back(alias),
                         _ => unreachable!(),
                     }
                 }

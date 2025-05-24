@@ -1,17 +1,18 @@
 use bstr::{ByteSlice, ByteVec};
 use itertools::Itertools;
-use std::{any::Any, mem};
+use std::{any::Any, mem, ops::Add};
 // use parking_lot::{Mutex, MutexGuard};
 
 use crate::parser::tree_writer::TreeWriter;
 
 use super::{
-    AliasName, Aliased, Context, Expr, FailReason, Parsable, ParseTreeObj, ReturnType, RwLock, Slice,
+    AliasName, Aliased, Command, Context, FailReason, Parsable, ParseTreeObj, ReturnType,
+    ReturnTypeSet, RwLock, Slice,
 };
 
 #[derive(Default, Debug)]
 pub struct AdditionData {
-    pub children: Vec<Box<dyn Expr>>,
+    pub children: Vec<Box<dyn Command>>,
 }
 
 #[derive(Debug)]
@@ -20,7 +21,7 @@ pub struct Addition {
 }
 
 impl Addition {
-    pub fn new(index: usize) -> Self {
+    pub fn new() -> Self {
         Self {
             inner: Default::default(),
         }
@@ -37,9 +38,19 @@ impl ParseTreeObj for Addition {
     }
 }
 
+impl Command for Addition {
+    fn get_return_types(&self) -> ReturnTypeSet {
+        ReturnTypeSet::Number | ReturnTypeSet::String
+    }
+}
+
 impl Aliased for Addition {
-    fn alias(&self) -> AliasName {
+    fn alias() -> AliasName {
         *b"add"
+    }
+
+    fn get_alias(&self) -> AliasName {
+        Self::alias()
     }
 }
 
