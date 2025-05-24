@@ -26,7 +26,7 @@ pub struct ImportData {
 }
 
 #[allow(dead_code)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+// #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(Debug, PartialEq, Clone, Copy, Hash, Eq)]
 pub enum Import {
     List,

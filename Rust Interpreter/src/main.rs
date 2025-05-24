@@ -9,17 +9,17 @@ use parser::{
     ParserSource,
 };
 
+mod parser;
 use crate::parser::Parser;
 
-// #[path = "testing/testing.rs"]
-mod testing;
+// // #[path = "testing/testing.rs"]
+// mod testing;
 //mod playground;
 
 // mod parser_runner;
 
 // mod commands;
 // mod docs_lib;
-mod parser;
 // mod writers;
 
 // use docs_lib::{gen_output, gen_test};

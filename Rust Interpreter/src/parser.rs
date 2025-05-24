@@ -35,8 +35,6 @@ pub use source::ParserSource;
 use source::ParserSourceStepper;
 use tokio::runtime::Builder;
 // use source::ParserSourceIter;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 // pub struct Paragraph {
 //     // global_pos: usize,
