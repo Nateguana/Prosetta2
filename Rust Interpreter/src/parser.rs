@@ -12,7 +12,9 @@ pub(crate) use parser_result::{ParserAction, ParserData, ParserStep};
 // use bstr::ByteSlice;
 mod alias_data;
 mod alias_finder;
+mod child_vec;
 mod close_data;
+mod color_finder;
 mod commands;
 mod context;
 mod fail_reason;
@@ -22,7 +24,6 @@ mod rwlock;
 mod slice;
 mod source;
 mod types;
-mod child_vec;
 
 use rwlock::{ArcRwLock, RwLockReadGuard};
 

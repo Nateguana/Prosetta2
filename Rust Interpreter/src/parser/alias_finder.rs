@@ -1,3 +1,6 @@
+#[path = "../tests/alias_finder.rs"]
+mod tests;
+
 use std::{
     cmp::Ordering,
     collections::{HashSet, VecDeque},
@@ -5,8 +8,6 @@ use std::{
     sync::Arc,
 };
 
-#[path = "../tests/alias_finder.rs"]
-mod tests;
 
 use super::{
     commands::AliasName,

@@ -1,6 +1,8 @@
 use core::str;
 use std::fmt::Debug;
 
+use bstr::ByteSlice;
+
 use super::close_data;
 
 fn is_word_arg_character(char: u8) -> bool {
@@ -61,6 +63,13 @@ impl<'a> Slice<'a> {
     }
     pub fn split(self, start: usize, end: usize) -> (Slice<'a>, Slice<'a>) {
         (self.slice(start, end), self.offset(end))
+    }
+
+    pub fn trim_end(self) -> Slice<'a> {
+        Self {
+            str: self.str.trim_end(),
+            pos: self.pos,
+        }
     }
 }
 
