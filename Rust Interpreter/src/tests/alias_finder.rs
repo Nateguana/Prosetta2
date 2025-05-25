@@ -9,7 +9,9 @@ fn assert_add_letter(a: Vec<AliasParseData>, b: Vec<AliasName>) {
 
     let good1 = itertools::equal(&a_alias, &b);
     assert!(good1, "{:?} is not equal to {:?}", &a_alias, &b_alias);
+}
 
+fn assert_add_letter_pos(a: Vec<AliasParseData>, b: Vec<AliasName>) {
     let a_pos = a.iter().map(|e| e.pos).collect::<Vec<_>>();
     let b_pos = b
         .iter()
@@ -49,7 +51,72 @@ fn test_word_abcde() {
     );
 
     // all aliases are used -- nothing left
-    for j in 0..5 {
-        assert_add_letter(finder.add_letter(word[j]), vec![]);
+    for j in word {
+        assert_add_letter(finder.add_letter(*j), vec![]);
+    }
+}
+
+#[test]
+#[timeout(1000)]
+fn test_word_positions_abcde() {
+    let word = b"abcde";
+
+    let mut finder_array = AliasFinderArray::new();
+
+    for x in word.iter().cloned().combinations(3) {
+        finder_array.add(x.try_into().unwrap());
+    }
+
+    let mut finder = AliasFinder::new(Arc::new(finder_array));
+
+    assert_add_letter_pos(finder.add_letter(word[0]), vec![]);
+    assert_add_letter_pos(finder.add_letter(word[1]), vec![]);
+    assert_add_letter_pos(finder.add_letter(word[2]), vec![*b"abc"]);
+    assert_add_letter_pos(finder.add_letter(word[3]), vec![*b"bcd", *b"abd", *b"acd"]);
+    assert_add_letter_pos(
+        finder.add_letter(word[4]),
+        vec![*b"cde", *b"bce", *b"bde", *b"abe", *b"ace", *b"ade"],
+    );
+
+    // all aliases are used -- nothing left
+    for j in word {
+        assert_add_letter_pos(finder.add_letter(*j), vec![]);
+    }
+}
+
+/// prosetta 1 would fail this test
+/// as it only cares about the first instance of a letter
+///
+#[test]
+#[timeout(1000)]
+fn test_word_abcabd() {
+    let word = b"abcabd";
+
+    let mut finder_array = AliasFinderArray::new();
+
+    for x in word.iter().cloned().combinations(3).unique() {
+        finder_array.add(x.try_into().unwrap());
+    }
+
+    let mut finder = AliasFinder::new(Arc::new(finder_array));
+
+    assert_add_letter(finder.add_letter(word[0]), vec![]);
+    assert_add_letter(finder.add_letter(word[1]), vec![]);
+    assert_add_letter(finder.add_letter(word[2]), vec![*b"abc"]);
+    assert_add_letter(finder.add_letter(word[3]), vec![*b"bca", *b"aba", *b"aca"]);
+    assert_add_letter(
+        finder.add_letter(word[4]),
+        vec![*b"cab", *b"bcb", *b"bab", *b"abb", *b"acb", *b"aab"],
+    );
+    assert_add_letter(
+        finder.add_letter(word[5]),
+        vec![
+            *b"abd", *b"cad", *b"cbd", *b"bcd", *b"bad", *b"bbd", *b"acd", *b"aad",
+        ],
+    );
+
+    // all aliases are used -- nothing left
+    for j in word {
+        assert_add_letter(finder.add_letter(*j), vec![]);
     }
 }

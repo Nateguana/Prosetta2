@@ -76,12 +76,12 @@ pub trait Aliased: Command {
 // #[async_trait::async_trait]
 // pub trait Stat: Parsable {}
 
-#[async_trait::async_trait]
-pub trait CommandData: Sync + Send + Any {
-    fn new() -> Self
-    where
-        Self: Sized;
-}
+// #[async_trait::async_trait]
+// pub trait CommandData: Sync + Send + Any {
+//     fn new() -> Self
+//     where
+//         Self: Sized;
+// }
 
 // // #[derive(Debug)]
 // enum CommandReturnResult {

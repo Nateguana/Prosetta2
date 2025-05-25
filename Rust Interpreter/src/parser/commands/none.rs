@@ -1,21 +1,20 @@
 use std::any::Any;
 
-use crate::parser::tree_writer::TreeWriter;
-
 use super::{
-    LintWriter, ParseTreeObj,
+    Command, Context, FailReason, LintWriter, Parsable, ParseTreeObj, ReturnType, ReturnTypeSet,
+    Slice, TreeWriter,
 };
 
 #[derive(Debug)]
-pub struct None;
+pub struct NoneCommand;
 
-impl None {
-    fn new() -> Self {
+impl NoneCommand {
+    pub fn new() -> Self {
         Self
     }
 }
 
-impl ParseTreeObj for None {
+impl ParseTreeObj for NoneCommand {
     fn name(&self) -> &'static str {
         "None"
     }
@@ -25,7 +24,24 @@ impl ParseTreeObj for None {
     }
 }
 
-impl TreeWriter for None {
+#[async_trait::async_trait]
+impl Parsable for NoneCommand {
+    async fn try_parse(
+        &self,
+        co: impl Context,
+        slice: Slice<'_>,
+    ) -> Result<(usize, ReturnType), FailReason> {
+        Ok((slice.end(), ReturnType::Null))
+    }
+}
+
+impl Command for NoneCommand {
+    fn get_return_types(&self) -> ReturnTypeSet {
+        ReturnTypeSet::Any
+    }
+}
+
+impl TreeWriter for NoneCommand {
     fn write_lisp(&self) -> String {
         format!("(TODO)")
     }

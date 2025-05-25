@@ -1,13 +1,13 @@
 use bstr::{ByteSlice, ByteVec};
 use itertools::Itertools;
-use std::{any::Any, mem, ops::Add};
+use std::{any::Any, fmt::format, mem, ops::Add};
 // use parking_lot::{Mutex, MutexGuard};
 
 use crate::parser::tree_writer::TreeWriter;
 
 use super::{
-    AliasName, Aliased, Command, Context, FailReason, Parsable, ParseTreeObj, ReturnType,
-    ReturnTypeSet, RwLock, Slice,
+    none::NoneCommand, AliasName, Aliased, Command, Context, FailReason, Parsable, ParseTreeObj,
+    ReturnType, ReturnTypeSet, RwLock, Slice,
 };
 
 #[derive(Default, Debug)]
@@ -23,7 +23,9 @@ pub struct Addition {
 impl Addition {
     pub fn new() -> Self {
         Self {
-            inner: Default::default(),
+            inner: RwLock::new(AdditionData {
+                children: vec![Box::new(NoneCommand::new()), Box::new(NoneCommand::new())],
+            }),
         }
     }
 }
@@ -74,7 +76,12 @@ impl Parsable for Addition {
 
 impl TreeWriter for Addition {
     fn write_lisp(&self) -> String {
-        todo!()
+        let this = self.inner.read();
+        let str = this
+            .children
+            .iter()
+            .fold(String::new(), |acc, ele| acc + " " + &ele.write_lisp());
+        format!("(add${}{str})", 1)
     }
 
     fn write_lint(&self, writer: &mut crate::parser::tree_writer::lint_writer::LintWriter) {
@@ -91,6 +98,6 @@ impl TreeWriter for Addition {
             sep = " + ";
         }
 
-        format!("()+()",)
+        str
     }
 }

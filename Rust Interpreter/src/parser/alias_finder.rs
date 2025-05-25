@@ -98,12 +98,13 @@ impl AliasFinder {
             }
         }
 
+        // sort aliases by pos
+        ret.sort_by(Self::compare_alias_parse);
+
         // add to hashset and remove dublicates
         ret.retain(|data| self.used_set.insert(data.alias));
 
-        // sort aliases by pos
-        ret.sort_by(Self::compare_alias_parse);
-        self.index += 1;
+        self.index = self.index.checked_add(1).unwrap();
         return ret;
     }
 
