@@ -3,18 +3,21 @@ pub mod paragraph_start;
 pub mod title;
 
 pub mod addition;
-pub mod print;
-pub mod subtract;
 pub mod color;
+pub mod print;
+pub mod stroke;
+pub mod subtract;
+pub mod was;
 
 use std::{any::Any, fmt::Debug};
 
 #[allow(unused)]
 use super::{
-    alias_finder::ImportFinder,
+    alias_finder::AliasLoc,
     close_data::{self, CloseData},
     context::{Context, Step_Continue},
     fail_reason::FailReason,
+    import_finder::ImportFinder,
     imports::{Import, ImportData},
     rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     slice::Slice,
@@ -59,6 +62,10 @@ pub trait Command: Parsable {
 }
 
 pub trait Aliased: Command {
+    fn new(loc: AliasLoc) -> Self
+    where
+        Self: Sized;
+
     fn alias() -> AliasName
     where
         Self: Sized;

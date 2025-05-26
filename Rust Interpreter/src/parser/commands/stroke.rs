@@ -9,29 +9,20 @@ use super::{
 };
 
 #[derive(Debug)]
-pub struct AdditionData {
-    pub children: Vec<Box<dyn Command>>,
+pub struct StrokeData {
+    pub child: Box<dyn Command>,
+    pub optional: Option<[Box<dyn Command>; 2]>,
     pub loc: AliasLoc,
 }
 
 #[derive(Debug)]
-pub struct Addition {
-    pub inner: RwLock<AdditionData>,
+pub struct Stroke {
+    pub inner: RwLock<StrokeData>,
 }
 
-// impl Addition {
-//     pub fn new() -> Self {
-//         Self {
-//             inner: RwLock::new(AdditionData {
-//                 children: vec![Box::new(NoneCommand::new()), Box::new(NoneCommand::new())],
-//             }),
-//         }
-//     }
-// }
-
-impl ParseTreeObj for Addition {
+impl ParseTreeObj for Stroke {
     fn name(&self) -> &'static str {
-        "Addition"
+        "Stroke"
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -39,24 +30,25 @@ impl ParseTreeObj for Addition {
     }
 }
 
-impl Command for Addition {
+impl Command for Stroke {
     fn get_return_types(&self) -> ReturnTypeSet {
-        ReturnTypeSet::Number | ReturnTypeSet::String
+        ReturnTypeSet::Void
     }
 }
 
-impl Aliased for Addition {
+impl Aliased for Stroke {
     fn new(loc: AliasLoc) -> Self {
         Self {
-            inner: RwLock::new(AdditionData {
-                children: vec![Box::new(NoneCommand::new()), Box::new(NoneCommand::new())],
+            inner: RwLock::new(StrokeData {
+                child: Box::new(NoneCommand::new()),
+                optional: None,
                 loc,
             }),
         }
     }
 
     fn alias() -> AliasName {
-        *b"add"
+        *b"sto"
     }
 
     fn get_alias(&self) -> AliasName {
@@ -65,31 +57,33 @@ impl Aliased for Addition {
 }
 
 #[async_trait::async_trait]
-impl Parsable for Addition {
+impl Parsable for Stroke {
     async fn try_parse(
         &self,
         co: impl Context,
         slice: Slice<'_>,
     ) -> Result<(usize, ReturnType), FailReason> {
-        Ok((slice.end(), ReturnType::Null))
+        Ok((slice.end(), ReturnType::Void))
     }
 }
 
-// impl Expr for Addition {
+// impl Expr for Stroke {
 
 //     fn get_children(&self) -> RwLockReadGuard<'_, Vec<Box<dyn Stat>>> {
 //        self.inner
 //     }
 // }
 
-impl TreeWriter for Addition {
+impl TreeWriter for Stroke {
     fn write_lisp(&self) -> String {
         let this = self.inner.read();
-        let str = this
-            .children
-            .iter()
-            .fold(String::new(), |acc, ele| acc + " " + &ele.write_lisp());
-        format!("(add${}{str})", 1)
+
+        // if let Some(arr) = this.optional {
+        //     format!("(stroke{} {str})", 1)
+        // } else {
+        //     format!("(stroke{} {str})", 1)
+        // }
+        "".to_string()
     }
 
     fn write_lint(&self, writer: &mut crate::parser::tree_writer::lint_writer::LintWriter) {
@@ -101,10 +95,10 @@ impl TreeWriter for Addition {
         let mut str = String::new();
         let mut sep = "";
 
-        for child in this.children.iter() {
-            str += &format!("{}({})", sep, child.write_javascript(indent));
-            sep = " + ";
-        }
+        // for child in this.children.iter() {
+        //     str += &format!("{}({})", sep, child.write_javascript(indent));
+        //     sep = " + ";
+        // }
 
         str
     }

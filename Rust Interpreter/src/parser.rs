@@ -12,6 +12,7 @@ pub(crate) use parser_result::{ParserAction, ParserData, ParserStep};
 // use bstr::ByteSlice;
 mod alias_data;
 mod alias_finder;
+mod import_finder;
 mod child_vec;
 mod close_data;
 mod color_finder;

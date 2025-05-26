@@ -9,29 +9,19 @@ use super::{
 };
 
 #[derive(Debug)]
-pub struct AdditionData {
-    pub children: Vec<Box<dyn Command>>,
+pub struct WasData {
+    pub child: Box<dyn Command>,
     pub loc: AliasLoc,
 }
 
 #[derive(Debug)]
-pub struct Addition {
-    pub inner: RwLock<AdditionData>,
+pub struct Was {
+    pub inner: RwLock<WasData>,
 }
 
-// impl Addition {
-//     pub fn new() -> Self {
-//         Self {
-//             inner: RwLock::new(AdditionData {
-//                 children: vec![Box::new(NoneCommand::new()), Box::new(NoneCommand::new())],
-//             }),
-//         }
-//     }
-// }
-
-impl ParseTreeObj for Addition {
+impl ParseTreeObj for Was {
     fn name(&self) -> &'static str {
-        "Addition"
+        "Was"
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -39,17 +29,17 @@ impl ParseTreeObj for Addition {
     }
 }
 
-impl Command for Addition {
+impl Command for Was {
     fn get_return_types(&self) -> ReturnTypeSet {
         ReturnTypeSet::Number | ReturnTypeSet::String
     }
 }
 
-impl Aliased for Addition {
+impl Aliased for Was {
     fn new(loc: AliasLoc) -> Self {
         Self {
-            inner: RwLock::new(AdditionData {
-                children: vec![Box::new(NoneCommand::new()), Box::new(NoneCommand::new())],
+            inner: RwLock::new(WasData {
+                child: Box::new(NoneCommand::new()),
                 loc,
             }),
         }
@@ -65,7 +55,7 @@ impl Aliased for Addition {
 }
 
 #[async_trait::async_trait]
-impl Parsable for Addition {
+impl Parsable for Was {
     async fn try_parse(
         &self,
         co: impl Context,
@@ -75,21 +65,17 @@ impl Parsable for Addition {
     }
 }
 
-// impl Expr for Addition {
+// impl Expr for Was {
 
 //     fn get_children(&self) -> RwLockReadGuard<'_, Vec<Box<dyn Stat>>> {
 //        self.inner
 //     }
 // }
 
-impl TreeWriter for Addition {
+impl TreeWriter for Was {
     fn write_lisp(&self) -> String {
         let this = self.inner.read();
-        let str = this
-            .children
-            .iter()
-            .fold(String::new(), |acc, ele| acc + " " + &ele.write_lisp());
-        format!("(add${}{str})", 1)
+        format!("(was)")
     }
 
     fn write_lint(&self, writer: &mut crate::parser::tree_writer::lint_writer::LintWriter) {
@@ -100,11 +86,6 @@ impl TreeWriter for Addition {
         let this = self.inner.read();
         let mut str = String::new();
         let mut sep = "";
-
-        for child in this.children.iter() {
-            str += &format!("{}({})", sep, child.write_javascript(indent));
-            sep = " + ";
-        }
 
         str
     }

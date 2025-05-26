@@ -8,6 +8,7 @@ use std::{
     sync::Arc,
 };
 
+use ufmt::derive;
 
 use super::{
     commands::AliasName,
@@ -51,6 +52,39 @@ impl AliasFinderArray {
     }
 }
 
+#[derive(Debug)]
+pub struct AliasLoc {
+    index: usize,
+    pos: [u8; 2],
+}
+
+impl AliasLoc {
+    pub fn write_lisp(&self) -> String {
+        format!(
+            "@{},{},{}",
+            self.index,
+            self.index + self.pos[0] as usize,
+            self.index + self.pos[1] as usize
+        )
+    }
+}
+
+// #[repr(C, packed(8))]
+pub struct ParsedAliasData {
+    index: usize,
+    pos: [u8; 2],
+    name: AliasName,
+}
+
+impl ParsedAliasData {
+    pub fn get_loc(&self) -> AliasLoc {
+        AliasLoc {
+            index: self.index,
+            pos: self.pos,
+        }
+    }
+}
+
 // #[derive(Clone)]
 pub struct AliasFinder {
     base: Arc<AliasFinderArray>,
@@ -67,6 +101,17 @@ impl AliasFinder {
             used_set: HashSet::new(),
             index: 0,
         }
+    }
+
+    pub fn find(&mut self, slice: Slice) -> Vec<AliasParseData> {
+        let mut ret = Vec::new();
+
+        // if slice.len() <= 200 {
+        //     for &letter in slice.str {
+        //         ret.extend(self.add_letter(letter).into_iter().map(|x|x.));
+        //     }
+        // }
+        ret
     }
 
     fn add_letter(&mut self, letter: u8) -> Vec<AliasParseData> {
@@ -115,60 +160,5 @@ impl AliasFinder {
             (a.pos[0] as u16) << 8 | (!a.pos[1] as u16)
         }
         dbg!(calc(dbg!(b))).cmp(&calc(a))
-    }
-}
-
-pub struct ImportFinder {
-    arr: Vec<ImportParseData>,
-}
-
-impl ImportFinder {
-    pub fn new(arr: &[ImportParseData]) -> Self {
-        Self { arr: arr.to_vec() }
-    }
-
-    /// find imports
-    pub fn find(&mut self, slice: Slice) -> Vec<ImportData> {
-        let mut ret = Vec::new();
-
-        for j in 0..slice.len() {
-            let char = slice.str[j].to_ascii_lowercase();
-            if char != b'\'' {
-                let mut index = 0;
-                while index < self.arr.len() {
-                    let alias = &mut self.arr[index];
-                    // check if letter matches
-                    if alias.alias[alias.index as usize] == char {
-                        alias.index += 1;
-
-                        // import has finished
-                        if alias.index >= 3 {
-                            let import_parse_data = self.arr.swap_remove(index);
-                            let element = ImportData {
-                                pos: slice.pos + j - 2,
-                                alias: import_parse_data.alias,
-                                import: import_parse_data.import,
-                                length: 3,
-                            };
-
-                            ret.push(element);
-
-                            // imports cannot intersect
-                            for ele in &mut self.arr {
-                                ele.index = 0;
-                            }
-
-                            // just removed element -- try index again
-                            index -= 1;
-                        }
-                    } else {
-                        alias.index = 0;
-                    }
-                    index += 1;
-                }
-            }
-        }
-
-        ret
     }
 }
