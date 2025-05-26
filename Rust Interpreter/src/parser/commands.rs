@@ -5,6 +5,7 @@ pub mod title;
 pub mod addition;
 pub mod print;
 pub mod subtract;
+pub mod color;
 
 use std::{any::Any, fmt::Debug};
 

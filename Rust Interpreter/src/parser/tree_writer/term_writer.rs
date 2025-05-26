@@ -52,6 +52,10 @@ impl TermWriter {
             LintColor::TitleImport => "94",
             LintColor::TitleAuthor => "96",
             LintColor::TitleSeparator => "95",
+            LintColor::Alias1 => todo!(),
+            LintColor::Alias2 => todo!(),
+            LintColor::Alias3 => todo!(),
+            LintColor::Color => todo!(),
         });
         str.push('m');
     }

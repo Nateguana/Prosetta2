@@ -6,6 +6,10 @@ pub enum LintColor {
     TitleAuthor,
     TitleImport,
     TitleSeparator,
+    Alias1,
+    Alias2,
+    Alias3,
+    Color
 }
 
 

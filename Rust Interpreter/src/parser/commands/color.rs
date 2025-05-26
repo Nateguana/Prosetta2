@@ -3,24 +3,30 @@ use itertools::Itertools;
 use std::{any::Any, fmt::format, mem, ops::Add};
 // use parking_lot::{Mutex, MutexGuard};
 
-use crate::parser::tree_writer::TreeWriter;
-
 use super::{
-    none::NoneCommand, AliasName, Aliased, Command, Context, FailReason, Parsable, ParseTreeObj,
-    ReturnType, ReturnTypeSet, RwLock, Slice,
+    none::NoneCommand, AliasName, Aliased, Command, Context, FailReason, LintColor, LintWriter,
+    Parsable, ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, Slice, TreeWriter,
 };
 
+#[derive(Debug)]
+pub struct ColorData {
+    pub color: String,
+    pub pos: usize,
+    pub length: usize,
+}
 
 #[derive(Debug)]
 pub struct Color {
-    pub color: Vec<u8>,
+    pub inner: RwLock<ColorData>,
 }
 
 impl Color {
     pub fn new() -> Self {
         Self {
             inner: RwLock::new(ColorData {
-                children: vec![Box::new(NoneCommand::new()), Box::new(NoneCommand::new())],
+                color: String::new(),
+                pos: 0,
+                length: 0,
             }),
         }
     }
@@ -38,7 +44,7 @@ impl ParseTreeObj for Color {
 
 impl Command for Color {
     fn get_return_types(&self) -> ReturnTypeSet {
-        ReturnTypeSet::Color 
+        ReturnTypeSet::Color
     }
 }
 
@@ -53,37 +59,31 @@ impl Parsable for Color {
     }
 }
 
-// impl Expr for Color {
-
-//     fn get_children(&self) -> RwLockReadGuard<'_, Vec<Box<dyn Stat>>> {
-//        self.inner
-//     }
-// }
-
 impl TreeWriter for Color {
     fn write_lisp(&self) -> String {
         let this = self.inner.read();
-        let str = this
-            .children
-            .iter()
-            .fold(String::new(), |acc, ele| acc + " " + &ele.write_lisp());
-        format!("(add${}{str})", 1)
-    }
 
-    fn write_lint(&self, writer: &mut crate::parser::tree_writer::lint_writer::LintWriter) {
-        todo!()
-    }
-
-    fn write_javascript(&self, indent: u8) -> String {
-        let this = self.inner.read();
-        let mut str = String::new();
-        let mut sep = "";
-
-        for child in this.children.iter() {
-            str += &format!("{}({})", sep, child.write_javascript(indent));
-            sep = " + ";
+        if this.length > 0 {
+            format!("(color \"{}\"${}$${})", this.color, this.pos, this.length)
+        } else {
+            format!("(color \"none\")")
         }
+    }
 
-        str
+    fn write_lint(&self, writer: &mut LintWriter) {
+        let this = self.inner.read();
+        if this.length > 0 {
+            writer.write_up_to(this.pos);
+            writer.write_as(LintColor::Color, this.length);
+        }
+    }
+
+    fn write_javascript(&self, _indent: u8) -> String {
+        let this = self.inner.read();
+        if this.length > 0 {
+            format!("color(\"{}\")", this.color)
+        } else {
+            format!("color(TODO())")
+        }
     }
 }
