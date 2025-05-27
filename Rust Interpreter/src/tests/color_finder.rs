@@ -107,8 +107,8 @@ fn test_all_colors_match() {
 }
 
 #[test]
-#[ignore]
-// #[timeout(100000)]
+// #[ignore]
+#[timeout(10000)]
 fn test_all_colors_no_match() {
     fn get_set_color_len(set: &HashSet<&[u8]>, color: &Vec<&[u8]>) -> Option<usize> {
         for end in (1..=color.len()).rev() {
@@ -133,6 +133,7 @@ fn test_all_colors_no_match() {
     let color_words: Vec<&[u8]> = colors
         .into_iter()
         .flat_map(|e| e.split(|&e| e == b' '))
+        .unique()
         .collect();
 
     let color_word_set = (1..=3).flat_map(|len| {
@@ -150,35 +151,13 @@ fn test_all_colors_no_match() {
         }
         let slice = bstr::join(b" ", set.iter());
 
-        // for spaces in itertools::repeat_n([b" "], set.len())
-        //     .multi_cartesian_product()
-        //     .collect::<Vec<_>>()
-        // {
-        // let space_length = set.len()
-        //     - spaces
-        //         .iter()
-        //         .take(set.len() - 1)
-        //         .map(|e| e.len())
-        //         .sum::<usize>()
-        //     - 1;
-
-        // let slice: Vec<u8> = set
-        //     .iter()
-        //     .cloned()
-        //     .interleave(itertools::repeat_n(b" ", set.len()))
-        //     .flatten()
-        //     .cloned()
-        //     .collect();
-
         assert_eq!(
-            finder
-                .find(Slice::from(slice.as_slice(), 0))
-                .map(|e| e.1),
+            finder.find(Slice::from(slice.as_slice(), 0)).map(|e| e.1),
             result,
             "{:?} failed",
             slice
         );
-        // }
+
         if index % 10000 == 0 {
             eprintln!(
                 "done {index}/{size} for {}%",
@@ -188,10 +167,17 @@ fn test_all_colors_no_match() {
     }
 }
 
-// #[test]
-// #[timeout(1000)]
-// fn test_all_colors() {
-//     for x in itertools::repeat_n([""," ","   "], 3).multi_cartesian_product() {
-//         println!("{:?}", x)
-//     }
-// }
+#[test]
+// #[ignore]
+#[timeout(10000)]
+fn test_all_colors_first_space() {
+    let finder = ColorFinder::new();
+
+    let colors = HTML_COLORS.split(|&e| e == b',');
+
+    for color in colors {
+        let mut vec: Vec<u8> = b" ".to_vec();
+        vec.extend_from_slice(color);
+        assert_eq!(finder.find(Slice::from(vec.as_slice(), 0)), None);
+    }
+}
