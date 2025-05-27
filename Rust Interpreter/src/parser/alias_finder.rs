@@ -69,14 +69,20 @@ impl AliasLoc {
     }
 }
 
-// #[repr(C, packed(8))]
 pub struct ParsedAliasData {
     index: usize,
     pos: [u8; 2],
-    name: AliasName,
+    alias: AliasName,
 }
 
 impl ParsedAliasData {
+    fn from(data: AliasParseData, start: usize) -> Self {
+        Self {
+            index: start + data.pos[0] as usize,
+            pos: [data.pos[1], data.pos[2]],
+            alias: data.alias,
+        }
+    }
     pub fn get_loc(&self) -> AliasLoc {
         AliasLoc {
             index: self.index,
@@ -85,7 +91,6 @@ impl ParsedAliasData {
     }
 }
 
-// #[derive(Clone)]
 pub struct AliasFinder {
     base: Arc<AliasFinderArray>,
     inner: Box<AliasFinderArray>,
@@ -103,14 +108,18 @@ impl AliasFinder {
         }
     }
 
-    pub fn find(&mut self, slice: Slice) -> Vec<AliasParseData> {
+    pub fn find(&mut self, slice: Slice) -> Vec<ParsedAliasData> {
         let mut ret = Vec::new();
 
-        // if slice.len() <= 200 {
-        //     for &letter in slice.str {
-        //         ret.extend(self.add_letter(letter).into_iter().map(|x|x.));
-        //     }
-        // }
+        if slice.len() <= 200 {
+            for index in 0..slice.len() {
+                ret.extend(
+                    self.add_letter(slice.str[index])
+                        .into_iter()
+                        .map(|x| ParsedAliasData::from(x, slice.pos)),
+                );
+            }
+        }
         ret
     }
 
@@ -159,6 +168,6 @@ impl AliasFinder {
         fn calc(a: &AliasParseData) -> u16 {
             (a.pos[0] as u16) << 8 | (!a.pos[1] as u16)
         }
-        dbg!(calc(dbg!(b))).cmp(&calc(a))
+        calc(b).cmp(&calc(a))
     }
 }
