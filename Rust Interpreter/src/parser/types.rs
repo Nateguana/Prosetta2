@@ -15,6 +15,13 @@ bitflags! {
     }
 }
 
+impl ReturnTypeSet {
+    pub fn intersect(parent_require: Self, child_give: Self) -> Option<Self> {
+        let result = parent_require.intersection(child_give);
+        (!result.is_empty()).then_some(result)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ReturnType {
     Null,

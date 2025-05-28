@@ -14,6 +14,7 @@ use super::{
     commands::AliasName,
     imports::{Import, ImportData, ImportParseData},
     slice::Slice,
+    types::{ReturnType, ReturnTypeSet},
 };
 
 #[derive(Clone, Debug)]

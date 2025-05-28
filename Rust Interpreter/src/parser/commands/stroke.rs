@@ -1,11 +1,11 @@
 use bstr::{ByteSlice, ByteVec};
 use itertools::Itertools;
-use std::{any::Any, fmt::format, mem, ops::Add};
+use std::{any::Any, ops::Add};
 // use parking_lot::{Mutex, MutexGuard};
 
 use super::{
-    none::NoneCommand, AliasLoc, AliasName, Aliased, Command, Context, FailReason, Parsable,
-    ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, Slice, TreeWriter,
+    none::NoneCommand, AliasLoc, AliasName, Aliased, Command, Context, FailReason, LintWriter,
+    Parsable, ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, Slice, TreeWriter,
 };
 
 #[derive(Debug)]
@@ -60,9 +60,13 @@ impl Aliased for Stroke {
 impl Parsable for Stroke {
     async fn try_parse(
         &self,
-        co: impl Context,
+        _co: impl Context,
         slice: Slice<'_>,
     ) -> Result<(usize, ReturnType), FailReason> {
+        // while let Some() = slice.{
+
+        // }
+
         Ok((slice.end(), ReturnType::Void))
     }
 }
@@ -78,15 +82,19 @@ impl TreeWriter for Stroke {
     fn write_lisp(&self) -> String {
         let this = self.inner.read();
 
-        // if let Some(arr) = this.optional {
-        //     format!("(stroke{} {str})", 1)
-        // } else {
-        //     format!("(stroke{} {str})", 1)
-        // }
-        "".to_string()
+        let strr = this.child.write_lisp();
+
+        let strr = this
+            .optional
+            .as_ref()
+            .map_or(&[] as &[_], |e| e)
+            .iter()
+            .fold(strr, |acc, ele| acc + " " + &ele.write_lisp());
+
+        format!("(stroke{} {})", this.loc.write_lisp(), strr)
     }
 
-    fn write_lint(&self, writer: &mut crate::parser::tree_writer::lint_writer::LintWriter) {
+    fn write_lint(&self, writer: &mut LintWriter) {
         todo!()
     }
 
