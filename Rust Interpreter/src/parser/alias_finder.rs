@@ -14,6 +14,7 @@ use super::{
     commands::AliasName,
     imports::{Import, ImportData, ImportParseData},
     slice::Slice,
+    tree_writer::lint_writer::{LintColor, LintWriter},
     types::{ReturnType, ReturnTypeSet},
 };
 
@@ -67,6 +68,16 @@ impl AliasLoc {
             self.index + self.pos[0] as usize,
             self.index + self.pos[1] as usize
         )
+    }
+    pub fn write_lint(&self, writer: &mut LintWriter, indent: u8) {
+        let color =
+            [LintColor::Alias1, LintColor::Alias2, LintColor::Alias3][(indent % 3) as usize];
+        writer.write_up_to(self.index);
+        writer.write_as(color, 1);
+        for pos in self.pos {
+            writer.write_up_to(pos as usize);
+            writer.write_as(color, 1);
+        }
     }
 }
 

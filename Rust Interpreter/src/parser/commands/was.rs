@@ -3,9 +3,11 @@ use itertools::Itertools;
 use std::{any::Any, fmt::format, mem, ops::Add};
 // use parking_lot::{Mutex, MutexGuard};
 
+use crate::parser::tree_writer::lint_writer::LintWriter;
+
 use super::{
-    none::NoneCommand, AliasLoc, AliasName, Aliased, Command, Context, FailReason, Parsable,
-    ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, Slice, TreeWriter,
+    none::NoneCommand, AliasLoc, AliasName, Aliased, Command, Context, FailReason, Indent,
+    Parsable, ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, Slice, TreeWriter,
 };
 
 #[derive(Debug)]
@@ -78,11 +80,11 @@ impl TreeWriter for Was {
         format!("(was)")
     }
 
-    fn write_lint(&self, writer: &mut crate::parser::tree_writer::lint_writer::LintWriter) {
+    fn write_lint(&self, writer: &mut LintWriter, indent: u8) {
         todo!()
     }
 
-    fn write_javascript(&self, indent: u8) -> String {
+    fn write_javascript(&self, indent: Indent) -> String {
         let this = self.inner.read();
         let mut str = String::new();
         let mut sep = "";

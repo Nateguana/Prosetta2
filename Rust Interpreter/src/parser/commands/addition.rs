@@ -4,8 +4,8 @@ use std::{any::Any, fmt::format, mem, ops::Add};
 // use parking_lot::{Mutex, MutexGuard};
 
 use super::{
-    none::NoneCommand, AliasLoc, AliasName, Aliased, Command, Context, FailReason, Parsable,
-    ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, Slice, TreeWriter,
+    none::NoneCommand, AliasLoc, AliasName, Aliased, Command, Context, FailReason, Indent,
+    LintWriter, Parsable, ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, Slice, TreeWriter,
 };
 
 #[derive(Debug)]
@@ -92,17 +92,17 @@ impl TreeWriter for Addition {
         format!("(add${}{str})", 1)
     }
 
-    fn write_lint(&self, writer: &mut crate::parser::tree_writer::lint_writer::LintWriter) {
+    fn write_lint(&self, _writer: &mut LintWriter, _indent: u8) {
         todo!()
     }
 
-    fn write_javascript(&self, indent: u8) -> String {
+    fn write_javascript(&self, indent: Indent) -> String {
         let this = self.inner.read();
         let mut str = String::new();
         let mut sep = "";
 
         for child in this.children.iter() {
-            str += &format!("{}({})", sep, child.write_javascript(indent));
+            str += &format!("{}({})", sep, child.write_javascript(indent.add()));
             sep = " + ";
         }
 

@@ -1,11 +1,9 @@
-use bstr::{ByteSlice, ByteVec};
-use itertools::Itertools;
-use std::{any::Any, ops::Add};
+use std::any::Any;
 // use parking_lot::{Mutex, MutexGuard};
 
 use super::{
-    none::NoneCommand, AliasLoc, AliasName, Aliased, Command, Context, FailReason, LintWriter,
-    Parsable, ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, Slice, TreeWriter,
+    none::NoneCommand, AliasLoc, AliasName, Aliased, Command, Context, FailReason, Indent,
+    LintWriter, Parsable, ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, Slice, TreeWriter,
 };
 
 #[derive(Debug)]
@@ -82,31 +80,38 @@ impl TreeWriter for Stroke {
     fn write_lisp(&self) -> String {
         let this = self.inner.read();
 
-        let strr = this.child.write_lisp();
+        let str = this.child.write_lisp();
 
-        let strr = this
+        let str2 = this
             .optional
             .as_ref()
             .map_or(&[] as &[_], |e| e)
             .iter()
-            .fold(strr, |acc, ele| acc + " " + &ele.write_lisp());
+            .fold(str, |acc, ele| acc + " " + &ele.write_lisp());
 
-        format!("(stroke{} {})", this.loc.write_lisp(), strr)
+        format!("(stroke{} {})", this.loc.write_lisp(), str2)
     }
 
-    fn write_lint(&self, writer: &mut LintWriter) {
-        todo!()
-    }
-
-    fn write_javascript(&self, indent: u8) -> String {
+    fn write_lint(&self, writer: &mut LintWriter, indent: u8) {
         let this = self.inner.read();
-        let mut str = String::new();
-        let mut sep = "";
+        this.loc.write_lint(writer, indent);
+    }
 
-        // for child in this.children.iter() {
-        //     str += &format!("{}({})", sep, child.write_javascript(indent));
-        //     sep = " + ";
-        // }
+    fn write_javascript(&self, indent: Indent) -> String {
+        let this = self.inner.read();
+
+        let str_first = this.child.write_javascript(indent.add());
+
+        let str_chilren = this
+            .optional
+            .as_ref()
+            .map_or(&[] as &[_], |e| e)
+            .iter()
+            .fold(str_first, |acc, ele| {
+                acc + "," + &ele.write_javascript(indent.add())
+            });
+
+        let str = format!("{}set_stroke({})", indent.str(), str_chilren);
 
         str
     }

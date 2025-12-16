@@ -1,7 +1,5 @@
 #![cfg(test)]
-use std::{collections::HashSet, mem};
-
-use crate::parser::alias_finder::ParsedAliasData;
+use std::{collections::HashSet};
 
 use super::*;
 use itertools::{self, Itertools};

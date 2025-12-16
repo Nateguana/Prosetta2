@@ -22,6 +22,7 @@ use super::{
     rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     slice::Slice,
     tree_writer::{
+        indent::Indent,
         lint_writer::{LintColor, LintWriter},
         TreeWriter,
     },

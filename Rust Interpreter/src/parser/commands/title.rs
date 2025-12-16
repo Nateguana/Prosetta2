@@ -5,9 +5,9 @@ use itertools::Itertools;
 use std::str;
 
 use super::{
-    close_data, CloseData, Context, FailReason, Import, ImportData, ImportFinder, LintColor,
-    LintWriter, Paragraph, Parsable, ParseTreeObj, ReturnType, RwLock, RwLockReadGuard, Slice,
-    Step_Continue, TreeWriter,
+    close_data, CloseData, Context, FailReason, Import, ImportData, ImportFinder, Indent,
+    LintColor, LintWriter, Paragraph, Parsable, ParseTreeObj, ReturnType, RwLock, RwLockReadGuard,
+    Slice, Step_Continue, TreeWriter,
 };
 
 #[derive(Debug)]
@@ -275,7 +275,7 @@ impl TreeWriter for Title {
         }
     }
 
-    fn write_lint(&self, writer: &mut LintWriter) {
+    fn write_lint(&self, writer: &mut LintWriter, _indent: u8) {
         let this = self.inner.read();
 
         fn write_authors(writer: &mut LintWriter, this: &RwLockReadGuard<TitleData>) {
@@ -310,7 +310,7 @@ impl TreeWriter for Title {
         }
     }
 
-    fn write_javascript(&self, _indent: u8) -> String {
+    fn write_javascript(&self, _indent: Indent) -> String {
         let this = self.inner.read();
         let title_str = str::from_utf8(&this.title).unwrap();
         let mut authors = this
@@ -318,20 +318,22 @@ impl TreeWriter for Title {
             .iter()
             .map(|e| str::from_utf8(&e.name).unwrap());
 
+        let author_count = authors.len();
+
         let primary_author_str = {
-            authors
-                .next()
-                .map_or("".to_string(), |name| format!("\nPrimary Author: {name}"))
+            authors.next().map_or("".to_string(), |name| {
+                format!("\n// Primary Author: {name}")
+            })
         };
 
         let secondary_authors_str = {
-            let secondary_authors = authors.collect::<Vec<_>>();
-            match secondary_authors.len() {
-                0 => "".to_string(),
-                len => format!(
-                    "\nSecondary Author{}: {}",
-                    if len > 1 { "s" } else { "" },
-                    secondary_authors.join(", ")
+            // let secondary_authors = authors.collect::<Vec<_>>();
+            match author_count {
+                0 | 1 => "".to_string(),
+                _ => format!(
+                    "\n// Secondary Author{}: {}",
+                    if author_count == 2 { "s" } else { "" },
+                    authors.join(", ")
                 ),
             }
         };
@@ -341,15 +343,13 @@ impl TreeWriter for Title {
             match imports.len() {
                 0 => "".to_string(),
                 len => format!(
-                    "\nImport{}: {}",
+                    "\n// Import{}: {}",
                     if len > 1 { "s" } else { "" },
                     imports.join(", ")
                 ),
             }
         };
 
-        format!(
-            "/*\nTitle: {title_str}{primary_author_str}{secondary_authors_str}{imports_str}\n*/",
-        )
+        format!("// Title: {title_str}{primary_author_str}{secondary_authors_str}{imports_str}",)
     }
 }

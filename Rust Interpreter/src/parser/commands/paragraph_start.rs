@@ -3,8 +3,8 @@ use std::any::Any;
 use crate::parser::tree_writer::TreeWriter;
 
 use super::{
-    Command, Context, FailReason, LintWriter, Paragraph, Parsable, ParseTreeObj, ReturnType,
-    RwLock, Slice,
+    Command, Context, FailReason, Indent, LintWriter, Paragraph, Parsable, ParseTreeObj,
+    ReturnType, RwLock, Slice,
 };
 
 #[derive(Debug)]
@@ -66,20 +66,20 @@ impl TreeWriter for ParagraphStart {
         format!("(paragraph {index}{children_str})")
     }
 
-    fn write_lint(&self, writer: &mut LintWriter) {
+    fn write_lint(&self, writer: &mut LintWriter, indent: u8) {
         let children = self.children.read();
 
         for child in children.iter() {
-            child.write_lint(writer);
+            child.write_lint(writer, indent + 1);
         }
     }
 
-    fn write_javascript(&self, _indent: u8) -> String {
+    fn write_javascript(&self, indent: Indent) -> String {
         let children = self.children.read();
         let mut ret = format!("// Paragraph {}", self.index);
 
         for child in children.iter() {
-            ret += &format!("\n{}", child.write_javascript(0));
+            ret += &format!("\n{}", child.write_javascript(indent));
         }
 
         ret

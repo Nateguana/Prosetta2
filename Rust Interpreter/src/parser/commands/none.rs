@@ -1,8 +1,8 @@
 use std::any::Any;
 
 use super::{
-    Command, Context, FailReason, LintWriter, Parsable, ParseTreeObj, ReturnType, ReturnTypeSet,
-    Slice, TreeWriter,
+    Command, Context, FailReason, Indent, LintWriter, Parsable, ParseTreeObj, ReturnType,
+    ReturnTypeSet, Slice, TreeWriter,
 };
 
 #[derive(Debug)]
@@ -45,8 +45,8 @@ impl TreeWriter for NoneCommand {
     fn write_lisp(&self) -> String {
         format!("(TODO)")
     }
-    fn write_lint(&self, _writer: &mut LintWriter) {}
-    fn write_javascript(&self, _indent: u8) -> String {
+    fn write_lint(&self, _writer: &mut LintWriter, _indent: u8) {}
+    fn write_javascript(&self, _indent: Indent) -> String {
         format!("TODO()")
     }
 }
@@ -74,9 +74,9 @@ impl TreeWriter for NoneStart {
         unreachable!()
     }
 
-    fn write_lint(&self, _writer: &mut LintWriter) {}
+    fn write_lint(&self, _writer: &mut LintWriter, _indent: u8) {}
 
-    fn write_javascript(&self, _indent: u8) -> String {
+    fn write_javascript(&self, _indent: Indent) -> String {
         unreachable!()
     }
 }

@@ -4,8 +4,8 @@ use std::{any::Any, fmt::format, mem, ops::Add};
 // use parking_lot::{Mutex, MutexGuard};
 
 use super::{
-    none::NoneCommand, AliasName, Aliased, Command, Context, FailReason, LintColor, LintWriter,
-    Parsable, ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, Slice, TreeWriter,
+    none::NoneCommand, AliasName, Aliased, Command, Context, FailReason, Indent, LintColor,
+    LintWriter, Parsable, ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, Slice, TreeWriter,
 };
 
 #[derive(Debug)]
@@ -70,7 +70,7 @@ impl TreeWriter for Color {
         }
     }
 
-    fn write_lint(&self, writer: &mut LintWriter) {
+    fn write_lint(&self, writer: &mut LintWriter, _indent: u8) {
         let this = self.inner.read();
         if this.length > 0 {
             writer.write_up_to(this.pos);
@@ -78,7 +78,7 @@ impl TreeWriter for Color {
         }
     }
 
-    fn write_javascript(&self, _indent: u8) -> String {
+    fn write_javascript(&self, _indent: Indent) -> String {
         let this = self.inner.read();
         if this.length > 0 {
             format!("color(\"{}\")", this.color)
