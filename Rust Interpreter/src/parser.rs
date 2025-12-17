@@ -2,7 +2,7 @@
 
 // use std::{any::Any, future::IntoFuture, sync::Arc, task::Poll};
 
-use context::{Context, DebugContext, DebugContextBase, RunContext};
+use context::{Context, DebugContext, DebugContextBase, RunContext, RunContextBase};
 use genawaiter::sync::{Co, GenBoxed};
 
 // use parking_lot::{MappedMutexGuard, Mutex, MutexGuard, RwLock};
@@ -12,13 +12,13 @@ pub(crate) use parser_result::{ParserAction, ParserData, ParserStep};
 // use bstr::ByteSlice;
 mod alias_data;
 mod alias_finder;
-mod import_finder;
 mod child_vec;
 mod close_data;
 mod color_finder;
 mod commands;
 mod context;
 mod fail_reason;
+mod import_finder;
 mod imports;
 mod parser_result;
 mod rwlock;
@@ -36,6 +36,7 @@ pub use source::ParserSource;
 
 use source::ParserSourceStepper;
 use tokio::runtime::Builder;
+
 // use source::ParserSourceIter;
 
 // pub struct Paragraph {
@@ -70,8 +71,8 @@ impl Parser {
 
     pub fn run(self) -> ParserData {
         let global_parent = commands::none::NoneStart::new();
-        // let mut context_base = RunContextBase::new();
-        let context = RunContext::new(&global_parent);
+        let context_base = RunContextBase::new();
+        let context = RunContext::new(&context_base, &global_parent);
 
         let result = Parser::start(context, self.source.clone(), self.tree.clone());
         // let res2 = result.into_future();
@@ -101,23 +102,21 @@ impl Parser {
         tree: ArcRwLock<Vec<Box<dyn Paragraph>>>,
     ) {
         let mut has_title = false;
-        // let mut iter = source.get_mut_iter();
 
         let mut parser_stepper = ParserSourceStepper::new();
 
-        let paragraph_index = 0;
+        let mut paragraph_index = 0;
         loop {
             parser_stepper.step(&mut source.write());
             if let Some(paragraph) = parser_stepper.next(&source.read()) {
                 let slice = Slice::new(&*paragraph);
                 if !has_title {
-                    {
-                        let mut tree_lock = tree.write();
-                        let title = Box::new(Title::new(paragraph_index)) as Box<dyn Paragraph>;
-                        tree_lock.push(title);
-                    }
-                    let title_lock = tree.read();
-                    let title_ref = title_lock
+                    
+                    let title = Box::new(Title::new(paragraph_index)) as Box<dyn Paragraph>;
+                    let mut tree_lock = tree.write();
+                    tree_lock.push(title);
+                    let tree_lock = tree_lock.downgrade();
+                    let title_ref = tree_lock
                         .last()
                         .unwrap()
                         .as_any()
@@ -126,7 +125,10 @@ impl Parser {
 
                     co.step_child(co.get_parent(), title_ref, slice).await;
                     has_title = true;
+                } else {
+                        
                 }
+                paragraph_index += 1;
             } else {
                 break;
             }
@@ -171,11 +173,11 @@ impl ParserDebug {
         }
     }
 
-    pub fn tree(&self) -> RwLockReadGuard<Vec<Box<dyn Paragraph>>> {
+    pub fn tree<'a>(&'a self) -> RwLockReadGuard<'a, Vec<Box<dyn Paragraph>>> {
         self.parser.tree.read()
     }
 
-    pub fn get_source(&self) -> RwLockReadGuard<ParserSource> {
+    pub fn get_source<'a>(&'a self) -> RwLockReadGuard<'a, ParserSource> {
         self.parser.source.read()
     }
 

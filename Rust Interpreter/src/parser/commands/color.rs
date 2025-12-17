@@ -1,11 +1,8 @@
-use bstr::{ByteSlice, ByteVec};
-use itertools::Itertools;
-use std::{any::Any, fmt::format, mem, ops::Add};
-// use parking_lot::{Mutex, MutexGuard};
+use std::any::Any;
 
 use super::{
-    none::NoneCommand, AliasName, Aliased, Command, Context, FailReason, Indent, LintColor,
-    LintWriter, Parsable, ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, Slice, TreeWriter,
+    Command, Context, FailReason, Indent, LintColor, LintWriter, Parsable, ParseTreeObj,
+    ReturnType, ReturnTypeSet, RwLock, RwLockMappedWriteGuard, Slice, TreeWriter,
 };
 
 #[derive(Debug)]
@@ -46,6 +43,12 @@ impl Command for Color {
     fn get_return_types(&self) -> ReturnTypeSet {
         ReturnTypeSet::Color
     }
+    fn get_child<'a>(&'a self, _index: usize) -> RwLockMappedWriteGuard<'a, dyn Command + 'static> {
+        unreachable!()
+    }
+    fn len(&self) -> usize {
+        0
+    }
 }
 
 #[async_trait::async_trait]
@@ -55,7 +58,18 @@ impl Parsable for Color {
         co: impl Context,
         slice: Slice<'_>,
     ) -> Result<(usize, ReturnType), FailReason> {
-        Ok((slice.end(), ReturnType::Null))
+        if let Some((color, length)) = co.color_finder().find(slice) {
+            let mut this = self.inner.write();
+            *this = ColorData {
+                color,
+                pos: slice.pos,
+                length,
+            };
+
+            Ok((slice.pos + length, ReturnType::Color))
+        } else {
+            Err(FailReason::NoLiteral)
+        }
     }
 }
 

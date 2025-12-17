@@ -5,7 +5,8 @@ use std::{any::Any, fmt::format, mem, ops::Add};
 
 use super::{
     none::NoneCommand, AliasLoc, AliasName, Aliased, Command, Context, FailReason, Indent,
-    LintWriter, Parsable, ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, Slice, TreeWriter,
+    LintWriter, Parsable, ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, RwLockMappedWriteGuard,
+    Slice, TreeWriter,
 };
 
 #[derive(Debug)]
@@ -42,6 +43,13 @@ impl ParseTreeObj for Addition {
 impl Command for Addition {
     fn get_return_types(&self) -> ReturnTypeSet {
         ReturnTypeSet::Number | ReturnTypeSet::String
+    }
+    fn get_child<'a>(&'a self, index: usize) -> RwLockMappedWriteGuard<'a, dyn Command + 'static> {
+        self.inner.write_map(|f| f.children[index].as_mut())
+    }
+    fn len(&self) -> usize {
+        let this = self.inner.read();
+        this.children.len()
     }
 }
 

@@ -1,6 +1,7 @@
 use genawaiter::sync::Co;
 
 use super::{
+    color_finder::ColorFinder,
     commands::{Parsable, ParseTreeObj},
     fail_reason::FailReason,
     parser_result::{ParserAction, ParserStep},
@@ -32,6 +33,8 @@ pub trait Context: Send + Sync {
     fn get_parent(&self) -> &dyn ParseTreeObj;
     fn get_level(&self) -> u8;
     fn is_debug(&self) -> bool;
+
+    fn color_finder(&self) -> &ColorFinder;
     // async fn step_match(&self, this: &'static str, child: &dyn Command, pos: usize);
     // async fn step_fail(&self, this: &'static str, child: &dyn Command, pos: usize);
 }
@@ -39,24 +42,38 @@ pub trait Context: Send + Sync {
 // the context for the debug genenerator
 pub struct DebugContextBase {
     co: Co<ParserStep>,
+    base: RunContextBase,
 }
 
-// pub struct RunContextBase {
-// }
+pub struct RunContextBase {
+    color_finder: ColorFinder,
+}
 
 pub struct DebugContext<'a, 'b> {
     base: &'a DebugContextBase,
-    inner: RunContext<'b>,
+    inner: RunContext<'a, 'b>,
 }
 
-pub struct RunContext<'a> {
-    parent: &'a dyn ParseTreeObj,
+pub struct RunContext<'a, 'b> {
+    base: &'a RunContextBase,
+    parent: &'b dyn ParseTreeObj,
     level: u8,
 }
 
 impl DebugContextBase {
     pub fn new(co: Co<ParserStep>) -> Self {
-        Self { co }
+        Self {
+            co,
+            base: RunContextBase::new(),
+        }
+    }
+}
+
+impl RunContextBase {
+    pub fn new() -> Self {
+        Self {
+            color_finder: ColorFinder::new(),
+        }
     }
 }
 
@@ -64,7 +81,7 @@ impl<'a, 'b> DebugContext<'a, 'b> {
     pub fn new(base: &'a DebugContextBase, parent: &'b dyn ParseTreeObj) -> Self {
         Self {
             base,
-            inner: RunContext::new(parent),
+            inner: RunContext::new(&base.base, parent),
         }
     }
     pub fn new_from(&'a self, parent: &'b dyn ParseTreeObj) -> Self {
@@ -75,12 +92,17 @@ impl<'a, 'b> DebugContext<'a, 'b> {
     }
 }
 
-impl<'a> RunContext<'a> {
-    pub fn new(parent: &'a dyn ParseTreeObj) -> Self {
-        Self { parent, level: 0 }
-    }
-    pub fn new_from(&self, parent: &'a dyn ParseTreeObj) -> Self {
+impl<'a, 'b> RunContext<'a, 'b> {
+    pub fn new(base: &'a RunContextBase, parent: &'b dyn ParseTreeObj) -> Self {
         Self {
+            base,
+            parent,
+            level: 0,
+        }
+    }
+    pub fn new_from(&self, parent: &'b dyn ParseTreeObj) -> Self {
+        Self {
+            base: self.base,
             parent,
             level: self.level + 1,
         }
@@ -160,6 +182,10 @@ impl<'a, 'b> Context for DebugContext<'a, 'b> {
     fn is_debug(&self) -> bool {
         true
     }
+
+    fn color_finder(&self) -> &ColorFinder {
+        &self.base.base.color_finder
+    }
     // async fn step_paragraph(
     //     &self,
     //     this: &'static str,
@@ -188,7 +214,7 @@ impl<'a, 'b> Context for DebugContext<'a, 'b> {
     // }
 }
 #[async_trait::async_trait]
-impl<'a> Context for RunContext<'a> {
+impl<'a, 'b> Context for RunContext<'a, 'b> {
     async fn step_continue(&self, _this: &dyn Parsable, _pos: usize, _description: String) {}
     async fn step_child<T: Parsable + 'static>(
         &self,
@@ -206,16 +232,19 @@ impl<'a> Context for RunContext<'a> {
         }
     }
 
-    fn get_parent(&self) -> &'a dyn ParseTreeObj {
+    fn get_parent(&self) -> &'b dyn ParseTreeObj {
         self.parent
     }
 
     fn get_level(&self) -> u8 {
         self.level
     }
-    
+
     fn is_debug(&self) -> bool {
         false
+    }
+    fn color_finder(&self) -> &ColorFinder {
+        &self.base.color_finder
     }
 }
 

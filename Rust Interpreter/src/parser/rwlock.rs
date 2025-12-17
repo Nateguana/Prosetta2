@@ -1,9 +1,9 @@
-use std::{any::Any, marker::PhantomData, ops::Deref, sync::Arc};
+use std::sync::Arc;
 
-use tokio::sync;
+use tokio::sync::{self};
 
 #[allow(unused)]
-pub(crate) use sync::{RwLockReadGuard, RwLockWriteGuard};
+pub(crate) use sync::{RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard};
 
 #[derive(Debug, Default)]
 pub struct RwLock<T> {
@@ -30,6 +30,13 @@ impl<T> RwLock<T> {
         F: FnOnce(&T) -> &U,
     {
         RwLockReadGuard::map(self.read(), f)
+    }
+
+    pub fn write_map<F, U: ?Sized>(&self, f: F) -> sync::RwLockMappedWriteGuard<'_, U>
+    where
+        F: FnOnce(&mut T) -> &mut U,
+    {
+        RwLockWriteGuard::map(self.write(), f)
     }
 
     // pub fn read_map<'a, 'b: 'a, U: 'a, F>(&'b self, f: F) -> RwLockMappedReadGuard<'a, 'b, U>

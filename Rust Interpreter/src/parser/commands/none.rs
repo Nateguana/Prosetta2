@@ -1,9 +1,8 @@
-use std::any::Any;
-
 use super::{
     Command, Context, FailReason, Indent, LintWriter, Parsable, ParseTreeObj, ReturnType,
-    ReturnTypeSet, Slice, TreeWriter,
+    ReturnTypeSet, RwLockMappedWriteGuard, Slice, TreeWriter,
 };
+use std::any::Any;
 
 #[derive(Debug)]
 pub struct NoneCommand;
@@ -38,6 +37,12 @@ impl Parsable for NoneCommand {
 impl Command for NoneCommand {
     fn get_return_types(&self) -> ReturnTypeSet {
         ReturnTypeSet::Any
+    }
+    fn get_child<'a>(&'a self, _index: usize) -> RwLockMappedWriteGuard<'a, dyn Command + 'static> {
+        unreachable!()
+    }
+    fn len(&self) -> usize {
+        0
     }
 }
 

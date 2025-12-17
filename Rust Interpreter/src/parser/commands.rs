@@ -19,7 +19,7 @@ use super::{
     fail_reason::FailReason,
     import_finder::ImportFinder,
     imports::{Import, ImportData},
-    rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard},
+    rwlock::{RwLock, RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard},
     slice::Slice,
     tree_writer::{
         indent::Indent,
@@ -60,6 +60,13 @@ pub trait Parsable: ParseTreeObj + TreeWriter {
 #[async_trait::async_trait]
 pub trait Command: Parsable {
     fn get_return_types(&self) -> ReturnTypeSet;
+    fn get_child<'a>(&'a self, index: usize) -> RwLockMappedWriteGuard<'a, dyn Command + 'static>;
+    fn len(&self) -> usize;
+    fn get_children<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = RwLockMappedWriteGuard<'a, dyn Command + 'a>>> {
+        Box::new((0..self.len()).map(|index| self.get_child(index)))
+    }
 }
 
 pub trait Aliased: Command {
@@ -106,5 +113,7 @@ pub trait Aliased: Command {
 #[async_trait::async_trait]
 pub trait Paragraph: Parsable {
     fn get_index(&self) -> usize;
-    // fn get_children(&self) -> ChildVec<'_, dyn Stat>;
+    // fn get_children<'a>(
+    //     &'a self,
+    // ) -> impl Iterator<Item = RwLockMappedWriteGuard<'a, &mut Box<dyn Command>>>;
 }

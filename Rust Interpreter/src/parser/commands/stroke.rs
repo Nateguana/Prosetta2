@@ -3,7 +3,8 @@ use std::any::Any;
 
 use super::{
     none::NoneCommand, AliasLoc, AliasName, Aliased, Command, Context, FailReason, Indent,
-    LintWriter, Parsable, ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, Slice, TreeWriter,
+    LintWriter, Parsable, ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, RwLockMappedWriteGuard,
+    Slice, TreeWriter,
 };
 
 #[derive(Debug)]
@@ -31,6 +32,22 @@ impl ParseTreeObj for Stroke {
 impl Command for Stroke {
     fn get_return_types(&self) -> ReturnTypeSet {
         ReturnTypeSet::Void
+    }
+    
+    fn get_child<'a>(&'a self, index: usize) -> RwLockMappedWriteGuard<'a, dyn Command + 'static> {
+        let this = self.inner.write_map(|f| match index {
+            0 => f.child.as_mut(),
+            _ => f.optional.as_mut().unwrap()[index - 1].as_mut(),
+        });
+        this
+    }
+    fn len(&self) -> usize {
+        let this = self.inner.read();
+        if this.optional.is_some() {
+            3
+        } else {
+            1
+        }
     }
 }
 
@@ -61,16 +78,11 @@ impl Parsable for Stroke {
         _co: impl Context,
         slice: Slice<'_>,
     ) -> Result<(usize, ReturnType), FailReason> {
-        // while let Some() = slice.{
-
-        // }
-
         Ok((slice.end(), ReturnType::Void))
     }
 }
 
 // impl Expr for Stroke {
-
 //     fn get_children(&self) -> RwLockReadGuard<'_, Vec<Box<dyn Stat>>> {
 //        self.inner
 //     }
@@ -84,9 +96,8 @@ impl TreeWriter for Stroke {
 
         let str2 = this
             .optional
-            .as_ref()
-            .map_or(&[] as &[_], |e| e)
             .iter()
+            .flatten()
             .fold(str, |acc, ele| acc + " " + &ele.write_lisp());
 
         format!("(stroke{} {})", this.loc.write_lisp(), str2)
@@ -95,6 +106,12 @@ impl TreeWriter for Stroke {
     fn write_lint(&self, writer: &mut LintWriter, indent: u8) {
         let this = self.inner.read();
         this.loc.write_lint(writer, indent);
+
+        this.child.write_lint(writer, indent + 1);
+
+        for child in this.optional.iter().flatten() {
+            child.write_lint(writer, indent + 1);
+        }
     }
 
     fn write_javascript(&self, indent: Indent) -> String {
@@ -102,16 +119,11 @@ impl TreeWriter for Stroke {
 
         let str_first = this.child.write_javascript(indent.add());
 
-        let str_chilren = this
-            .optional
-            .as_ref()
-            .map_or(&[] as &[_], |e| e)
-            .iter()
-            .fold(str_first, |acc, ele| {
-                acc + "," + &ele.write_javascript(indent.add())
-            });
+        let str_chilren = this.optional.iter().flatten().fold(str_first, |acc, ele| {
+            acc + "," + &ele.write_javascript(indent.add())
+        });
 
-        let str = format!("{}set_stroke({})", indent.str(), str_chilren);
+        let str = format!("{}set_stroke({});", indent.str(), str_chilren);
 
         str
     }

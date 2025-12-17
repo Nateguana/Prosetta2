@@ -75,7 +75,7 @@ impl AliasLoc {
         writer.write_up_to(self.index);
         writer.write_as(color, 1);
         for pos in self.pos {
-            writer.write_up_to(pos as usize);
+            writer.write_up_to(self.index + pos as usize);
             writer.write_as(color, 1);
         }
     }

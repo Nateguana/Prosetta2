@@ -1,14 +1,10 @@
-use bstr::{ByteSlice, ByteVec};
-use itertools::Itertools;
-use std::{any::Any, fmt::format, mem, ops::Add};
-// use parking_lot::{Mutex, MutexGuard};
-
-use crate::parser::tree_writer::lint_writer::LintWriter;
-
 use super::{
     none::NoneCommand, AliasLoc, AliasName, Aliased, Command, Context, FailReason, Indent,
-    Parsable, ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, Slice, TreeWriter,
+    Parsable, ParseTreeObj, ReturnType, ReturnTypeSet, RwLock, RwLockMappedWriteGuard, Slice,
+    TreeWriter,
 };
+use crate::parser::tree_writer::lint_writer::LintWriter;
+use std::{any::Any, fmt::format};
 
 #[derive(Debug)]
 pub struct WasData {
@@ -35,6 +31,12 @@ impl Command for Was {
     fn get_return_types(&self) -> ReturnTypeSet {
         ReturnTypeSet::Number | ReturnTypeSet::String
     }
+    fn get_child<'a>(&'a self, _index: usize) -> RwLockMappedWriteGuard<'a, dyn Command + 'static> {
+        self.inner.write_map(|f| f.child.as_mut())
+    }
+    fn len(&self) -> usize {
+        1
+    }
 }
 
 impl Aliased for Was {
@@ -60,35 +62,29 @@ impl Aliased for Was {
 impl Parsable for Was {
     async fn try_parse(
         &self,
-        co: impl Context,
+        _co: impl Context,
         slice: Slice<'_>,
     ) -> Result<(usize, ReturnType), FailReason> {
         Ok((slice.end(), ReturnType::Null))
     }
 }
 
-// impl Expr for Was {
-
-//     fn get_children(&self) -> RwLockReadGuard<'_, Vec<Box<dyn Stat>>> {
-//        self.inner
-//     }
-// }
-
 impl TreeWriter for Was {
     fn write_lisp(&self) -> String {
         let this = self.inner.read();
-        format!("(was)")
+        format!("(was{} {})", this.loc.write_lisp(), this.child.write_lisp())
     }
 
     fn write_lint(&self, writer: &mut LintWriter, indent: u8) {
-        todo!()
+        let this = self.inner.read();
+        this.loc.write_lint(writer, indent);
+        this.child.write_lint(writer, indent);
     }
 
     fn write_javascript(&self, indent: Indent) -> String {
-        let this = self.inner.read();
-        let mut str = String::new();
-        let mut sep = "";
+        // let this = self.inner.read();
 
-        str
+        // format!("{}let _")
+        String::new()
     }
 }
