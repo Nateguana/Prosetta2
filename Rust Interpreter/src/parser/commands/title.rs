@@ -4,6 +4,8 @@ use bstr::{ByteSlice, ByteVec};
 use itertools::Itertools;
 use std::str;
 
+use crate::parser::context::{ParsableVec, ParseResult};
+
 use super::{
     close_data, CloseData, Context, FailReason, Import, ImportData, ImportFinder, Indent,
     LintColor, LintWriter, Paragraph, Parsable, ParseTreeObj, ReturnType, RwLock, RwLockReadGuard,
@@ -17,8 +19,8 @@ pub struct AuthorData {
     pub length: usize,
 }
 
-#[derive(Default, Debug)]
-pub struct TitleData {
+#[derive(Debug, Default)]
+pub struct Title {
     /// the poem title
     pub title: Vec<u8>,
     /// title is trimmed
@@ -29,23 +31,19 @@ pub struct TitleData {
     pub imports: Vec<ImportData>,
     //
     pub by_section_length: usize,
-}
 
-#[derive(Debug)]
-pub struct Title {
-    pub inner: RwLock<TitleData>,
     pub index: usize,
 }
 
 impl Title {
     pub fn new(index: usize) -> Self {
         Self {
-            inner: Default::default(),
             index,
+            ..Default::default()
         }
     }
     ///add title data and returns slice after by
-    async fn find_title<'a>(&self, co: &impl Context, slice: Slice<'a>) -> Slice<'a> {
+    fn find_title<'a>(&self, co: &impl Context, slice: Slice<'a>) -> Slice<'a> {
         let mut curr_slice = slice;
         let mut space: &[u8] = b"";
         loop {
@@ -101,7 +99,7 @@ impl Title {
         }
     }
 
-    async fn parse_authors(&self, co: &impl Context, mut curr_slice: Slice<'_>) {
+    fn parse_authors(&self, co: &impl Context, mut curr_slice: Slice<'_>) {
         let mut import_finder = ImportFinder::new(Import::get_all());
 
         let mut parsed_first = false;
@@ -220,14 +218,9 @@ impl ParseTreeObj for Title {
     }
 }
 
-#[async_trait::async_trait]
 impl Parsable for Title {
-    async fn try_parse(
-        &self,
-        co: impl Context,
-        slice: Slice<'_>,
-    ) -> Result<(usize, ReturnType), FailReason> {
-        let curr_slice = self.find_title(&co, slice).await;
+    fn parse(&mut self, co: Context, slice: Slice<'_>) -> ParseResult<Self> {
+        let curr_slice = self.find_title(&co, slice);
         if curr_slice.len() > 0 {
             Step_Continue!(
                 co,
@@ -235,11 +228,14 @@ impl Parsable for Title {
                 curr_slice.pos,
                 "{} found author section with the keyword by"
             );
-            self.parse_authors(&co, curr_slice).await;
+            self.parse_authors(&co, curr_slice);
         } else {
             Step_Continue!(co, self, curr_slice.pos, "{} never found keyword by");
         }
         Ok((slice.end(), ReturnType::Null))
+    }
+    fn get_children(&self) -> Vec<usize> {
+        Vec::new()
     }
 }
 
@@ -250,7 +246,7 @@ impl Paragraph for Title {
 }
 
 impl TreeWriter for Title {
-    fn write_lisp(&self) -> String {
+    fn write_lisp(&self, _vec: ParsableVec) -> String {
         let this = self.inner.read();
         // escape potetial " in title
         let title_str = str::from_utf8(&this.title).unwrap().replace("\"", "\\\"");
@@ -275,10 +271,8 @@ impl TreeWriter for Title {
         }
     }
 
-    fn write_lint(&self, writer: &mut LintWriter, _indent: u8) {
-        let this = self.inner.read();
-
-        fn write_authors(writer: &mut LintWriter, this: &RwLockReadGuard<TitleData>) {
+    fn write_lint(&self, _vec: ParsableVec, writer: &mut LintWriter, _indent: u8) {
+        fn write_authors(writer: &mut LintWriter, this: &Title) {
             let mut authors = this.authors.iter().peekable();
             let mut imports = this.imports.iter().peekable();
             while let Some(author) = authors.peek() {
@@ -299,21 +293,20 @@ impl TreeWriter for Title {
             }
         }
 
-        writer.write_up_to_as(LintColor::Title, this.title_length);
-        if this.by_section_length > 0 {
+        writer.write_up_to_as(LintColor::Title, self.title_length);
+        if self.by_section_length > 0 {
             writer.write_as(LintColor::TitleBy, 2);
-            write_authors(writer, &this);
+            write_authors(writer, &self);
             writer.write_up_to_as(
                 LintColor::TitleSeparator,
-                this.title_length + this.by_section_length,
+                self.title_length + self.by_section_length,
             );
         }
     }
 
-    fn write_javascript(&self, _indent: Indent) -> String {
-        let this = self.inner.read();
-        let title_str = str::from_utf8(&this.title).unwrap();
-        let mut authors = this
+    fn write_javascript(&self, _vec: ParsableVec, _indent: Indent) -> String {
+        let title_str = str::from_utf8(&self.title).unwrap();
+        let mut authors = self
             .authors
             .iter()
             .map(|e| str::from_utf8(&e.name).unwrap());
@@ -339,7 +332,7 @@ impl TreeWriter for Title {
         };
 
         let imports_str = {
-            let mut imports = this.imports.iter().map(|e| e.import.name());
+            let mut imports = self.imports.iter().map(|e| e.import.name());
             match imports.len() {
                 0 => "".to_string(),
                 len => format!(

@@ -2,8 +2,7 @@
 
 // use std::{any::Any, future::IntoFuture, sync::Arc, task::Poll};
 
-use context::{Context, DebugContext, DebugContextBase, RunContext, RunContextBase};
-use genawaiter::sync::{Co, GenBoxed};
+use context::Context;
 
 // use parking_lot::{MappedMutexGuard, Mutex, MutexGuard, RwLock};
 pub(crate) use parser_result::{ParserAction, ParserData, ParserStep};
@@ -21,6 +20,7 @@ mod fail_reason;
 mod import_finder;
 mod imports;
 mod parser_result;
+mod parser_tree_root;
 mod rwlock;
 mod slice;
 mod source;
@@ -37,6 +37,12 @@ pub use source::ParserSource;
 use source::ParserSourceStepper;
 use tokio::runtime::Builder;
 
+use crate::parser::{
+    color_finder::ColorFinder,
+    context::{ChildContinueFunc, ContextBase, ParsableVec, StepContinueFunc},
+    parser_tree_root::ParserTreeRoot,
+};
+
 // use source::ParserSourceIter;
 
 // pub struct Paragraph {
@@ -50,157 +56,147 @@ use tokio::runtime::Builder;
 // }
 
 pub struct Parser {
-    source: ArcRwLock<ParserSource>,
-    tree: ArcRwLock<Vec<Box<dyn Paragraph>>>,
+    source: ParserSource,
 }
 
-pub struct ParserDebug {
-    parser: Parser,
-    generator: GenBoxed<ParserStep, (), ParserStep>,
-    is_generator_done: bool,
-}
+// pub struct ParserDebug {
+//     parser: Parser,
+//     is_generator_done: bool,
+// }
+
+const MAX_STACK_FRAME_LEVEL: u8 = 100;
+
+// enum NextStepFunc<T> {
+//     Step(StepContinueFunc<T>),
+//     Child(ChildContinueFunc<T>, Option<(usize, ReturnType)>),
+// }
+
+// type NextStepFunc = Box<dyn Fn()>
 
 impl Parser {
-    ///make a new parser with a source and command flags
+    ///make a new parser with a source
     pub fn new(source: ParserSource) -> Self {
-        Self {
-            source: ArcRwLock::new(source),
-            tree: ArcRwLock::new(Vec::new()),
-        }
+        Self { source }
     }
 
     pub fn run(self) -> ParserData {
-        let global_parent = commands::none::NoneStart::new();
-        let context_base = RunContextBase::new();
-        let context = RunContext::new(&context_base, &global_parent);
+        let context = ContextBase {
+            debug: false,
+            level: 0,
+            color_finder: ColorFinder::new(),
+            vec: ParsableVec::new(),
+        };
+        
+        context.vec.push(Box::new(root));
 
-        let result = Parser::start(context, self.source.clone(), self.tree.clone());
-        // let res2 = result.into_future();
-        let rt = Builder::new_current_thread().build().unwrap();
-        rt.block_on(result);
+        let slice = Slice::empty();
+        // let stack: Vec<ChildContinueFunc> = Vec::new();
+        // let next: StepContinueFunc = || context.get_mut::<ParserTreeRoot>(1).unwrap().parse;
+
+        while stack.len() > 0 {}
+
         ParserData {
-            source: self.source.into_inner(),
-            tree: self.tree.into_inner(),
+            source: root.source,
+            tree: vec,
         }
     }
 
-    pub fn debug(self) -> ParserDebug {
-        let generator = GenBoxed::new_boxed(|co| {
-            ParserDebug::start_debug(co, self.source.clone(), self.tree.clone())
-        });
 
-        ParserDebug {
-            parser: self,
-            generator,
-            is_generator_done: false,
-        }
-    }
-
-    async fn start(
-        co: impl Context,
-        source: ArcRwLock<ParserSource>,
-        tree: ArcRwLock<Vec<Box<dyn Paragraph>>>,
-    ) {
-        let mut has_title = false;
-
-        let mut parser_stepper = ParserSourceStepper::new();
-
-        let mut paragraph_index = 0;
-        loop {
-            parser_stepper.step(&mut source.write());
-            if let Some(paragraph) = parser_stepper.next(&source.read()) {
-                let slice = Slice::new(&*paragraph);
-                if !has_title {
-                    
-                    let title = Box::new(Title::new(paragraph_index)) as Box<dyn Paragraph>;
-                    let mut tree_lock = tree.write();
-                    tree_lock.push(title);
-                    let tree_lock = tree_lock.downgrade();
-                    let title_ref = tree_lock
-                        .last()
-                        .unwrap()
-                        .as_any()
-                        .downcast_ref::<Title>()
-                        .unwrap();
-
-                    co.step_child(co.get_parent(), title_ref, slice).await;
-                    has_title = true;
-                } else {
-                        
-                }
-                paragraph_index += 1;
-            } else {
-                break;
-            }
-        }
-    }
+    // pub fn debug(self) -> ParserDebug {
+    //     ParserDebug {
+    //         parser: self,
+    //         is_generator_done: false,
+    //     }
+    // }
 }
 
-impl ParserDebug {
-    async fn start_debug(
-        co: Co<ParserStep>,
-        source: ArcRwLock<ParserSource>,
-        tree: ArcRwLock<Vec<Box<dyn Paragraph>>>,
-    ) -> ParserStep {
-        let global_parent = commands::none::NoneStart::new();
-        let mut context_base = DebugContextBase::new(co);
-        let context = DebugContext::new(&mut context_base, &global_parent);
-        Parser::start(context, source, tree).await;
+// fn step_paragraph(
+//     co: impl Context,
+//     source: ParserSource,
+//     tree: Vec<Box<dyn Paragraph>>,
+// ) -> Box<dyn Fn(&mut T) -> ParseResult<T>> {
+//     let mut has_title = false;
 
-        let finish_action = ParserAction::Finished;
+//     let mut parser_stepper = ParserSourceStepper::new();
 
-        ParserStep::new(finish_action, 0)
-    }
-}
+//     let mut paragraph_index = 0;
+//     loop {
+//         parser_stepper.step(&mut source);
+//         if let Some(paragraph) = parser_stepper.next(&mut source) {
+//             let slice = Slice::new(&*paragraph);
 
-impl ParserDebug {
-    ///step the parser
-    pub fn step(&mut self) -> ParserStep {
-        match self.generator.resume() {
-            genawaiter::GeneratorState::Yielded(step) => step,
-            genawaiter::GeneratorState::Complete(step) => {
-                self.is_generator_done = true;
-                step
-            }
-        }
-    }
+//             if !has_title {
+//                 let title = Box::new(Title::new(paragraph_index)) as Box<dyn Paragraph>;
+//                 tree.push(title);
 
-    pub fn next(&mut self) -> Option<ParserStep> {
-        if self.is_generator_done {
-            None
-        } else {
-            Some(self.step())
-        }
-    }
+//                 let title_ref = tree
+//                     .last()
+//                     .unwrap()
+//                     .as_any()
+//                     .downcast_ref::<Title>()
+//                     .unwrap();
 
-    pub fn tree<'a>(&'a self) -> RwLockReadGuard<'a, Vec<Box<dyn Paragraph>>> {
-        self.parser.tree.read()
-    }
+//                 co.step_child(co.get_parent(), title_ref, slice);
+//                 has_title = true;
+//             } else {
+//             }
 
-    pub fn get_source<'a>(&'a self) -> RwLockReadGuard<'a, ParserSource> {
-        self.parser.source.read()
-    }
-
-    pub fn into_data(self) -> ParserData {
-        ParserData {
-            source: self.parser.source.into_inner(),
-            tree: self.parser.tree.into_inner(),
-        }
-    }
-}
-
-// struct ParserIter<'a> {
-//     parser: &'a mut Parser,
+//             paragraph_index += 1;
+//         } else {
+//             break;
+//         }
+//     }
 // }
 
-// impl<'a> Iterator for ParserIter<'a> {
-//     type Item = ParserStep;
+// impl ParserDebug {
+//     async fn start_debug(
+//         co: Co<ParserStep>,
+//         source: ArcRwLock<ParserSource>,
+//         tree: ArcRwLock<Vec<Box<dyn Paragraph>>>,
+//     ) -> ParserStep {
+//         let global_parent = commands::none::NoneStart::new();
+//         let mut context_base = DebugContextBase::new(co);
+//         let context = DebugContext::new(&mut context_base, &global_parent);
+//         Parser::start(context, source, tree).await;
 
-//     fn next(&mut self) -> Option<Self::Item> {
-//         if !self.parser.is_generator_done {
-//             Some(self.parser.step())
-//         } else {
+//         let finish_action = ParserAction::Finished;
+
+//         ParserStep::new(finish_action, 0)
+//     }
+// }
+
+// impl ParserDebug {
+//     ///step the parser
+//     pub fn step(&mut self) -> ParserStep {
+//         match self.generator.resume() {
+//             genawaiter::GeneratorState::Yielded(step) => step,
+//             genawaiter::GeneratorState::Complete(step) => {
+//                 self.is_generator_done = true;
+//                 step
+//             }
+//         }
+//     }
+
+//     pub fn next(&mut self) -> Option<ParserStep> {
+//         if self.is_generator_done {
 //             None
+//         } else {
+//             Some(self.step())
+//         }
+//     }
+
+//     pub fn tree<'a>(&'a self) -> RwLockReadGuard<'a, Vec<Box<dyn Paragraph>>> {
+//         self.parser.tree.read()
+//     }
+
+//     pub fn get_source<'a>(&'a self) -> RwLockReadGuard<'a, ParserSource> {
+//         self.parser.source.read()
+//     }
+
+//     pub fn into_data(self) -> ParserData {
+//         ParserData {
+//             source: self.parser.source.into_inner(),
+//             tree: self.parser.tree.into_inner(),
 //         }
 //     }
 // }

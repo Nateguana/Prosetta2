@@ -1,9 +1,11 @@
+use crate::parser::context::ParsableVec;
+
 use super::{commands::Paragraph, fail_reason::FailReason, types::ReturnType, ParserSource};
 
 #[derive(Debug)]
 pub struct ParserData {
     pub source: ParserSource,
-    pub tree: Vec<Box<dyn Paragraph>>,
+    pub tree: ParsableVec,
 }
 #[derive(Debug)]
 pub struct ParserStep {

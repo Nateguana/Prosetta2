@@ -25,7 +25,7 @@ impl ParseTreeObj for NoneCommand {
 
 #[async_trait::async_trait]
 impl Parsable for NoneCommand {
-    async fn try_parse(
+    async fn parse(
         &self,
         co: impl Context,
         slice: Slice<'_>,

@@ -53,7 +53,7 @@ impl Command for Color {
 
 #[async_trait::async_trait]
 impl Parsable for Color {
-    async fn try_parse(
+    async fn parse(
         &self,
         co: impl Context,
         slice: Slice<'_>,

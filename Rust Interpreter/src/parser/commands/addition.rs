@@ -74,7 +74,7 @@ impl Aliased for Addition {
 
 #[async_trait::async_trait]
 impl Parsable for Addition {
-    async fn try_parse(
+    async fn parse(
         &self,
         co: impl Context,
         slice: Slice<'_>,

@@ -60,7 +60,7 @@ impl Aliased for Was {
 
 #[async_trait::async_trait]
 impl Parsable for Was {
-    async fn try_parse(
+    async fn parse(
         &self,
         _co: impl Context,
         slice: Slice<'_>,

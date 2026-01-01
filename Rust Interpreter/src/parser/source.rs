@@ -82,7 +82,7 @@ impl ParserSourceStepper {
         }
     }
 
-    pub fn step(&mut self, parser_source: &mut ParserSource) {
+    pub fn step(&mut self, parser_source: &mut ParserSource) -> usize {
         if self.paragraph_index >= parser_source.paragraphs.len() {
             let should_remove = match parser_source.sources.get_mut(0) {
                 Some(source) => match source {
@@ -96,6 +96,7 @@ impl ParserSourceStepper {
                 parser_source.sources.pop_front();
             }
         }
+        self.paragraph_index
     }
 
     pub fn next<'a>(&mut self, parser_source: &'a ParserSource) -> Option<&'a [u8]> {

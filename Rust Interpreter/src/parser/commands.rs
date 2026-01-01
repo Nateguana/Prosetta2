@@ -2,20 +2,23 @@ pub mod none;
 pub mod paragraph_start;
 pub mod title;
 
-pub mod addition;
-pub mod color;
-pub mod print;
-pub mod stroke;
-pub mod subtract;
-pub mod was;
+// pub mod addition;
+// pub mod color;
+// pub mod print;
+// pub mod stroke;
+// pub mod subtract;
+// pub mod was;
 
 use std::{any::Any, fmt::Debug};
+
+// use regex::Match;
 
 #[allow(unused)]
 use super::{
     alias_finder::AliasLoc,
     close_data::{self, CloseData},
-    context::{Context, Step_Continue},
+    context::Context,
+    context::ParsableVec,
     fail_reason::FailReason,
     import_finder::ImportFinder,
     imports::{Import, ImportData},
@@ -32,7 +35,6 @@ use super::{
 
 pub type AliasName = [u8; 3];
 
-#[async_trait::async_trait]
 pub trait ParseTreeObj: Sync + Send + Any + Debug {
     // fn new() -> Self
     // where
@@ -46,27 +48,16 @@ pub trait ParseTreeObj: Sync + Send + Any + Debug {
 
     // fn get_children(&self);
 }
-#[async_trait::async_trait]
 pub trait Parsable: ParseTreeObj + TreeWriter {
-    async fn try_parse(
-        &self,
-        co: impl Context,
-        slice: Slice<'_>,
-    ) -> Result<(usize, ReturnType), FailReason>
+    fn parse(&mut self, co: Context, slice: Slice<'_>) -> super::context::ParseResult<Self>
     where
         Self: Sized;
+
+    fn get_children(&self) -> Vec<usize>;
 }
 
-#[async_trait::async_trait]
 pub trait Command: Parsable {
     fn get_return_types(&self) -> ReturnTypeSet;
-    fn get_child<'a>(&'a self, index: usize) -> RwLockMappedWriteGuard<'a, dyn Command + 'static>;
-    fn len(&self) -> usize;
-    fn get_children<'a>(
-        &'a self,
-    ) -> Box<dyn Iterator<Item = RwLockMappedWriteGuard<'a, dyn Command + 'a>>> {
-        Box::new((0..self.len()).map(|index| self.get_child(index)))
-    }
 }
 
 pub trait Aliased: Command {
@@ -110,7 +101,6 @@ pub trait Aliased: Command {
 //     /// returned to go to the parent state with a failure
 //     Failed(FailReason),
 // }
-#[async_trait::async_trait]
 pub trait Paragraph: Parsable {
     fn get_index(&self) -> usize;
     // fn get_children<'a>(

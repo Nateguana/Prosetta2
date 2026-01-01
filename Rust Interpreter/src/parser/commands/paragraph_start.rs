@@ -24,7 +24,7 @@ impl ParagraphStart {
 
 impl ParseTreeObj for ParagraphStart {
     fn name(&self) -> &'static str {
-        "Title"
+        "Paragraph"
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -34,13 +34,11 @@ impl ParseTreeObj for ParagraphStart {
 
 #[async_trait::async_trait]
 impl Parsable for ParagraphStart {
-    async fn try_parse(
+    async fn parse(
         &self,
         co: impl Context,
         slice: Slice<'_>,
     ) -> Result<(usize, ReturnType), FailReason> {
-        
-
         Ok((slice.end(), ReturnType::Null))
     }
 }

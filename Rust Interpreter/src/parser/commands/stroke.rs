@@ -73,7 +73,7 @@ impl Aliased for Stroke {
 
 #[async_trait::async_trait]
 impl Parsable for Stroke {
-    async fn try_parse(
+    async fn parse(
         &self,
         _co: impl Context,
         slice: Slice<'_>,
