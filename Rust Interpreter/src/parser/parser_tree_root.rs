@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::parser::context::{ChildType, ParsableVec};
+use crate::parser::{parsable_vec::ParsableVec, types::ReturnType};
 
 use super::{
     commands::{title::Title, Parsable, ParseTreeObj},
@@ -28,49 +28,59 @@ impl ParseTreeObj for ParserTreeRoot {
 }
 
 impl Parsable for ParserTreeRoot {
-    fn parse(&mut self, co: Context, _slice: Slice<'_>) -> ParseResult<Self> {
-        self.step(co, ParserSourceStepper::new(), false)
-    }
-
     fn get_children(&self) -> Vec<usize> {
         self.tree
     }
 }
 
 impl ParserTreeRoot {
-    pub fn new(source: Weak<ParserSource>) -> ParserTreeRoot {
-        Self {
-            tree: Vec::new(),
-        }
+    pub fn new() -> ParserTreeRoot {
+        Self { tree: Vec::new() }
     }
+
+    pub fn parse(
+        &mut self,
+        co: Context,
+        _slice: Slice<'_>,
+        source: Weak<ParserSource>,
+    ) -> ParseResult {
+        self.step(co, source, ParserSourceStepper::new(), false)
+    }
+
+    // fn back_step(&mut self, co: Context, _slice: Slice<'_>, _: Option<ReturnType>) {}
 
     fn step(
         &mut self,
         co: Context,
+        source: Weak<ParserSource>,
         parser_stepper: ParserSourceStepper,
         has_title: bool,
-    ) -> ParseResult<Self> {
-        let paragraph_index = self.parser_stepper.step(&mut self.source);
+    ) -> ParseResult {
+        let paragraph_index = self.parser_stepper.step(&mut source.);
         if let Some(paragraph) = parser_stepper.next(&mut self.source) {
             let slice = Slice::new(&*paragraph);
 
-            let index;
             if !has_title {
-                index = co.new_child(Title::new(paragraph_index));
-                self.tree.push(index);
+                let child = Title::new(paragraph_index);
                 has_title = true;
+
+                let (index, ret) = co.result_child(
+                    child,
+                    Title::parse,
+                    move |s: &mut Self, co, _, _| s.step(co, parser_stepper, has_title),
+                    slice,
+                );
+
+                self.tree.push(index);
+
+                ret
             } else {
                 todo!()
-            }
-
-            ParseResult::Child {
-                child: ChildType::Command(index),
-                slice,
-                step: Box::new(move |s: &mut Self, co, _, _| s.step(co, parser_stepper, has_title)),
             }
         } else {
             ParseResult::Match {
                 pos: paragraph_index,
+                return_type: ReturnType::Null,
             }
         }
     }

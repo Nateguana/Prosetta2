@@ -1,6 +1,7 @@
-use crate::parser::context::ParsableVec;
-
-use super::{commands::Paragraph, fail_reason::FailReason, types::ReturnType, ParserSource};
+use super::{
+    commands::Paragraph, fail_reason::FailReason, parsable_vec::ParsableVec, types::ReturnType,
+    ParserSource,
+};
 
 #[derive(Debug)]
 pub struct ParserData {

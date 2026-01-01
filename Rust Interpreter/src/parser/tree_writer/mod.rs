@@ -28,6 +28,6 @@ impl TreeAllWriter {
     }
 
     pub fn write_all_javascript(vec: ParsableVec) -> String {
-        vec.get(1).write_javascript(vec, Indent::new());
+        vec.get(1).write_javascript(vec, Indent::new())
     }
 }

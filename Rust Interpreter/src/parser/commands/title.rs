@@ -42,6 +42,24 @@ impl Title {
             ..Default::default()
         }
     }
+
+    pub fn parse(&mut self, co: Context, slice: Slice<'_>) -> ParseResult {
+        let curr_slice = self.find_title(&co, slice);
+        if curr_slice.len() > 0 {
+            Step_Continue!(
+                co,
+                self,
+                curr_slice.pos,
+                "{} found author section with the keyword by"
+            );
+            self.parse_authors(&co, curr_slice);
+        } else {
+            Step_Continue!(co, self, curr_slice.pos, "{} never found keyword by");
+        }
+        
+        Ok((slice.end(), ReturnType::Null))
+    }
+
     ///add title data and returns slice after by
     fn find_title<'a>(&self, co: &impl Context, slice: Slice<'a>) -> Slice<'a> {
         let mut curr_slice = slice;
@@ -219,21 +237,6 @@ impl ParseTreeObj for Title {
 }
 
 impl Parsable for Title {
-    fn parse(&mut self, co: Context, slice: Slice<'_>) -> ParseResult<Self> {
-        let curr_slice = self.find_title(&co, slice);
-        if curr_slice.len() > 0 {
-            Step_Continue!(
-                co,
-                self,
-                curr_slice.pos,
-                "{} found author section with the keyword by"
-            );
-            self.parse_authors(&co, curr_slice);
-        } else {
-            Step_Continue!(co, self, curr_slice.pos, "{} never found keyword by");
-        }
-        Ok((slice.end(), ReturnType::Null))
-    }
     fn get_children(&self) -> Vec<usize> {
         Vec::new()
     }

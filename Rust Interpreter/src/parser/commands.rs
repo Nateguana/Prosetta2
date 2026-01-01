@@ -18,7 +18,7 @@ use super::{
     alias_finder::AliasLoc,
     close_data::{self, CloseData},
     context::Context,
-    context::ParsableVec,
+    parsable_vec::ParsableVec,
     fail_reason::FailReason,
     import_finder::ImportFinder,
     imports::{Import, ImportData},
@@ -49,10 +49,6 @@ pub trait ParseTreeObj: Sync + Send + Any + Debug {
     // fn get_children(&self);
 }
 pub trait Parsable: ParseTreeObj + TreeWriter {
-    fn parse(&mut self, co: Context, slice: Slice<'_>) -> super::context::ParseResult<Self>
-    where
-        Self: Sized;
-
     fn get_children(&self) -> Vec<usize>;
 }
 
@@ -78,6 +74,10 @@ pub trait Aliased: Command {
             self.name().to_string()
         )
     }
+
+    fn parse(&mut self, co: Context, slice: Slice<'_>) -> super::context::ParseResult
+    where
+        Self: Sized;
 }
 
 // #[async_trait::async_trait]

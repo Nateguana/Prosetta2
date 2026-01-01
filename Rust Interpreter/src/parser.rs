@@ -19,6 +19,7 @@ mod context;
 mod fail_reason;
 mod import_finder;
 mod imports;
+mod parsable_vec;
 mod parser_result;
 mod parser_tree_root;
 mod rwlock;
@@ -39,7 +40,8 @@ use tokio::runtime::Builder;
 
 use crate::parser::{
     color_finder::ColorFinder,
-    context::{ChildContinueFunc, ContextBase, ParsableVec, StepContinueFunc},
+    context::{ContextBase, StepContinueFunc, StepFunc},
+    parsable_vec::ParsableVec,
     parser_tree_root::ParserTreeRoot,
 };
 
@@ -80,27 +82,29 @@ impl Parser {
     }
 
     pub fn run(self) -> ParserData {
-        let context = ContextBase {
+        let mut context_base = ContextBase {
             debug: false,
             level: 0,
             color_finder: ColorFinder::new(),
             vec: ParsableVec::new(),
+            return_type: None,
+            source: self.source,
         };
-        
-        context.vec.push(Box::new(root));
 
-        let slice = Slice::empty();
-        // let stack: Vec<ChildContinueFunc> = Vec::new();
-        // let next: StepContinueFunc = || context.get_mut::<ParserTreeRoot>(1).unwrap().parse;
+        context_base.vec.push(Box::new(ParserTreeRoot::new()));
+        let mut stack: Vec<StepFunc> = vec![context_base.make_step_method(ParserTreeRoot::parse, 1)];
 
-        while stack.len() > 0 {}
+        while let Some(func) = stack.pop() {
+            let context = Context::new(&mut context_base)
+
+            // match func()
+        }
 
         ParserData {
-            source: root.source,
-            tree: vec,
+            source: context_base.source,
+            tree: context_base.vec,
         }
     }
-
 
     // pub fn debug(self) -> ParserDebug {
     //     ParserDebug {
