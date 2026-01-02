@@ -8,9 +8,8 @@ use super::{
     slice::Slice,
     source::ParserSourceStepper,
     tree_writer::{indent::Indent, lint_writer::LintWriter, TreeWriter},
-    ParserSource,
 };
-use std::{any::Any, rc::Weak};
+use std::any::Any;
 
 #[derive(Debug)]
 pub struct ParserTreeRoot {
@@ -22,6 +21,10 @@ impl ParseTreeObj for ParserTreeRoot {
         "Parser Tree Root"
     }
 
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -29,7 +32,7 @@ impl ParseTreeObj for ParserTreeRoot {
 
 impl Parsable for ParserTreeRoot {
     fn get_children(&self) -> Vec<usize> {
-        self.tree
+        self.tree.clone()
     }
 }
 
@@ -38,26 +41,18 @@ impl ParserTreeRoot {
         Self { tree: Vec::new() }
     }
 
-    pub fn parse(
-        &mut self,
-        co: Context,
-        _slice: Slice<'_>,
-        source: Weak<ParserSource>,
-    ) -> ParseResult {
-        self.step(co, source, ParserSourceStepper::new(), false)
+    pub fn parse<'slice>(&mut self, co: Context) -> ParseResult<'slice> {
+        self.step(co, ParserSourceStepper::new(), false)
     }
 
-    // fn back_step(&mut self, co: Context, _slice: Slice<'_>, _: Option<ReturnType>) {}
-
-    fn step(
+    fn step<'slice>(
         &mut self,
-        co: Context,
-        source: Weak<ParserSource>,
-        parser_stepper: ParserSourceStepper,
-        has_title: bool,
-    ) -> ParseResult {
-        let paragraph_index = self.parser_stepper.step(&mut source.);
-        if let Some(paragraph) = parser_stepper.next(&mut self.source) {
+        mut co: Context,
+        mut parser_stepper: ParserSourceStepper,
+        mut has_title: bool,
+    ) -> ParseResult<'slice> {
+        let paragraph_index = parser_stepper.step(co.get_source());
+        if let Some(paragraph) = parser_stepper.next(co.get_source()) {
             let slice = Slice::new(&*paragraph);
 
             if !has_title {
@@ -67,7 +62,7 @@ impl ParserTreeRoot {
                 let (index, ret) = co.result_child(
                     child,
                     Title::parse,
-                    move |s: &mut Self, co, _, _| s.step(co, parser_stepper, has_title),
+                    move |s: &mut Self, cot, _, _| s.step(cot, parser_stepper, has_title),
                     slice,
                 );
 
@@ -87,23 +82,23 @@ impl ParserTreeRoot {
 }
 
 impl TreeWriter for ParserTreeRoot {
-    fn write_lisp(&self, vec: ParsableVec) -> String {
+    fn write_lisp(&self, vec: &ParsableVec) -> String {
         self.tree
-            .into_iter()
-            .map(|index| vec.get(index).write_lisp(vec))
+            .iter()
+            .map(|&index| vec.get(index).write_lisp(vec))
             .join("\n\n")
     }
 
-    fn write_lint(&self, vec: ParsableVec, writer: &mut LintWriter, indent: u8) {
-        for index in self.tree {
+    fn write_lint(&self, vec: &ParsableVec, writer: &mut LintWriter, indent: u8) {
+        for &index in &self.tree {
             vec.get(index).write_lint(vec, writer, indent);
         }
     }
 
-    fn write_javascript(&self, vec: ParsableVec, indent: Indent) -> String {
+    fn write_javascript(&self, vec: &ParsableVec, indent: Indent) -> String {
         self.tree
-            .into_iter()
-            .map(|index| vec.get(index).write_javascript(vec, indent))
+            .iter()
+            .map(|&index| vec.get(index).write_javascript(vec, indent))
             .join("\n\n")
     }
 }

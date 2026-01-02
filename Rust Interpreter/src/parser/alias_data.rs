@@ -5,7 +5,7 @@ use std::{
 
 use super::{
     alias_finder::{AliasFinderArray, AliasLoc, AliasParseData},
-    commands::{self as comm, addition::Addition, stroke::Stroke, AliasName, Aliased},
+    commands::{self as comm, AliasName, Aliased},
     imports::{Import, ImportData},
 };
 
@@ -76,10 +76,10 @@ impl AliasData {
 }
 impl AliasData {
     fn add_base_expr_aliases(data: &mut (AliasMap, AliasFinderArray)) {
-        Self::add_aliases(data, make_alias_data!(Addition))
+        // Self::add_aliases(data, make_alias_data!(Addition))
     }
     fn add_base_stat_aliases(data: &mut (AliasMap, AliasFinderArray)) {
-        Self::add_aliases(data, make_alias_data!(Stroke))
+        // Self::add_aliases(data, make_alias_data!(Stroke))
     }
     fn add_expr_aliases(data: &mut (AliasMap, AliasFinderArray), import: Import) {
         Self::add_aliases(

@@ -1,4 +1,4 @@
-use std::{any::Any, mem};
+use std::{any::Any, fmt::format, mem};
 
 use bstr::{ByteSlice, ByteVec};
 use itertools::Itertools;
@@ -9,7 +9,7 @@ use crate::parser::context::{ParsableVec, ParseResult};
 use super::{
     close_data, CloseData, Context, FailReason, Import, ImportData, ImportFinder, Indent,
     LintColor, LintWriter, Paragraph, Parsable, ParseTreeObj, ReturnType, RwLock, RwLockReadGuard,
-    Slice, Step_Continue, TreeWriter,
+    Slice, TreeWriter,
 };
 
 #[derive(Debug)]
@@ -30,9 +30,16 @@ pub struct Title {
     // the imports: (type, position, length)
     pub imports: Vec<ImportData>,
     //
-    pub by_section_length: usize,
+    pub author_section_length: usize,
 
     pub index: usize,
+}
+
+struct AuthorStepState {
+    import_finder: ImportFinder,
+    parsed_first: bool,
+    sep: &'static [u8],
+    author_data: AuthorData,
 }
 
 impl Title {
@@ -43,167 +50,168 @@ impl Title {
         }
     }
 
-    pub fn parse(&mut self, co: Context, slice: Slice<'_>) -> ParseResult {
-        let curr_slice = self.find_title(&co, slice);
-        if curr_slice.len() > 0 {
-            Step_Continue!(
-                co,
-                self,
-                curr_slice.pos,
-                "{} found author section with the keyword by"
-            );
-            self.parse_authors(&co, curr_slice);
+    pub fn parse(&mut self, co: Context, slice: Slice) -> ParseResult {
+        self.find_title(co, slice, b"")
+    }
+
+    /// adds title looking at lines until a line starts with "by "
+    fn find_title(&mut self, co: Context, curr_slice: Slice, space: &[u8]) -> ParseResult {
+        let (title, rest) = curr_slice.get_next_line();
+
+        if co.is_debug() {
+            crate::ghidra_marker!("rsi");
         } else {
-            Step_Continue!(co, self, curr_slice.pos, "{} never found keyword by");
+            crate::ghidra_marker!("esi");
         }
-        
-        Ok((slice.end(), ReturnType::Null))
-    }
 
-    ///add title data and returns slice after by
-    fn find_title<'a>(&self, co: &impl Context, slice: Slice<'a>) -> Slice<'a> {
-        let mut curr_slice = slice;
-        let mut space: &[u8] = b"";
-        loop {
-            let (title, rest) = curr_slice.get_next_line();
+        let is_first_line = space.len() > 0;
 
-            // add title
-            {
-                let mut this = self.inner.write();
-                this.title.push_str(title.str.trim());
-                this.title.push_str(space);
-                this.title_length += title.end();
-            }
+        if title.len() == 0 {
+            co.result_cont(
+                move |this, co, _| co.result_match(title.len(), ReturnType::Null),
+                title,
+                format!("Title never found keyword \"by\""),
+            )
+        } else if !is_first_line && title.str[..3].to_ascii_lowercase() == b"by " {
+            self.author_section_length = 2;
+            co.result_cont(
+                Title::parse_authors,
+                curr_slice.offset(3),
+                format!("Title found author section with the keyword \"by\""),
+            )
+        } else {
+            self.title.push_str(title.str.trim());
+            self.title.push_str(space);
+            self.title_length += title.end();
 
-            //  if co.is_debug() {
-            //     crate::ghidra_marker!("rsi");
-            // } else {
-            //     crate::ghidra_marker!("esi");
-            // }
-
-            if space.len() > 1 {
-                Step_Continue!(
-                    co,
-                    self,
-                    rest.pos,
-                    "{} did not find keyword by so added line to title"
-                );
+            let description = if is_first_line {
+                "Title added first line to title"
             } else {
-                Step_Continue!(co, self, rest.pos, "{} added first line to title");
-            }
+                "Title did not find keyword \"by\" so added line to title"
+            };
 
-            space = b"\n";
-            // no more text
-            if rest.len() == 0 {
-                return rest;
-            }
-
-            // find "by"
-            let (word, rest2) = rest.get_next_word_arg();
-
-            if word.str == b"by" {
-                self.inner.write().by_section_length = 2;
-                // self.inner.write().by_start = word.pos;
-                return rest2;
-            }
-
-            // if co.is_debug() {
-            //     crate::ghidra_marker!("rdi");
-            // } else {
-            //     crate::ghidra_marker!("edi");
-            // }
-
-            curr_slice = rest;
+            co.result_cont(
+                move |this, co, slice| this.find_title(co, rest, b"\n"),
+                rest,
+                format!(description),
+            )
         }
     }
 
-    fn parse_authors(&self, co: &impl Context, mut curr_slice: Slice<'_>) {
-        let mut import_finder = ImportFinder::new(Import::get_all());
-
-        let mut parsed_first = false;
-        let mut sep: &[u8] = b"";
-        let mut author_data = AuthorData {
-            name: Vec::new(),
-            pos: curr_slice.pos,
-            length: 0,
+    fn parse_authors(&self, co: Context, slice: Slice) -> ParseResult {
+        let author_state = AuthorStepState {
+            import_finder: ImportFinder::new(Import::get_all()),
+            parsed_first: false,
+            sep: b"",
+            author_data: AuthorData {
+                name: Vec::new(),
+                pos: slice.pos,
+                length: 0,
+            },
         };
-        while curr_slice.len() > 0 {
-            let slice;
-            (slice, curr_slice) = curr_slice.get_next_slice();
-            // if is separator
 
-            // println!("{}", str::from_utf8(slice.str).unwrap());
-            if Self::is_separator(slice.str).close_count > 0 {
-                sep = b"";
-                let old_author = mem::replace(
-                    &mut author_data,
-                    AuthorData {
-                        name: Vec::new(),
-                        pos: 0,
-                        length: 0,
-                    },
-                );
-                self.add_author(
-                    co,
-                    &mut import_finder,
-                    &mut parsed_first,
-                    old_author,
-                    slice.pos,
-                )
-                .await;
-
-            //author name
-            } else {
-                if author_data.pos == 0 {
-                    author_data.pos = slice.pos;
-                }
-                author_data.name.push_str(sep);
-                author_data.name.push_str(slice.str);
-                author_data.length = slice.end() - author_data.pos;
-                sep = b" ";
-            }
-        }
-
-        // add last author
-        self.add_author(
-            co,
-            &mut import_finder,
-            &mut parsed_first,
-            author_data,
-            curr_slice.end(),
-        )
-        .await;
-
-        let mut this = self.inner.write();
-        this.by_section_length = curr_slice.end() - this.title_length;
+        self.find_authors_length_check(co, curr_slice, author_state)
     }
 
-    async fn add_author(
+    // this exists because find_authors is called by itself and the last author needs to be added if length is 0 in that case
+    fn find_authors_length_check(
+        &mut self,
+        co: Context,
+        slice: Slice,
+        mut authors_state: AuthorStepState,
+    ) -> ParseResult {
+        self.author_section_length = slice.pos - self.title_length;
+        if slice.len() == 0 {
+            co.result_match(slice.end(), ReturnType::Null)
+        } else {
+            self.find_authors(co, curr_slice, author_state)
+        }
+    }
+
+    fn find_authors(
+        &mut self,
+        co: Context,
+        slice: Slice,
+        mut authors_state: AuthorStepState,
+    ) -> ParseResult {
+        // update length
+        self.author_section_length = slice.pos - self.title_length;
+
+        // if slice not empty
+        //
+        if slice.len() > 0 {
+            let (word, rest) = slice.get_next_slice();
+
+            // if word is separator
+            // add author
+            if Self::is_separator(word.str).close_count > 0 {
+                authors_state.sep = b"";
+                self.add_author(co, rest, authors_state)
+
+            // if word is part of author name
+            // edit current author
+            } else {
+                let author_data = &mut authors_state.author_data;
+                if author_data.pos == 0 {
+                    author_data.pos = word.pos;
+                }
+                author_data.name.push_str(authors_state.sep);
+                author_data.name.push_str(word.str);
+                author_data.length = word.end() - author_data.pos;
+                authors_state.sep = b" ";
+
+                co.result_cont(step, slice, format!("Title found an author name"))
+            }
+
+        // slice is empty
+        // add last author if needed
+        } else {
+            self.add_author(co, rest, authors_state)
+        }
+    }
+
+    fn add_author(
         &self,
-        co: &impl Context,
-        import_finder: &mut ImportFinder,
-        parsed_first: &mut bool,
-        author_data: AuthorData,
+        co: Context,
+        rest: Slice,
+        mut authors_state: AuthorStepState,
+    ) -> ParseResult {
+        if authors_state.author_data.name.len() > 0 {
+            let author_data = mem::replace(
+                &mut authors_state.author_data,
+                AuthorData {
+                    name: Vec::new(),
+                    pos: 0,
+                    length: 0,
+                },
+            );
+            self.authors.push(author_data);
+        }
+        co.result_cont(
+            move |this, co, slice| this.add_imports(co, slice, authors_state),
+            rest,
+            format!("Title found a separator"),
+        )
+    }
+
+    fn add_imports(
+        &self,
+        co: Context,
+        slice: Slice,
+        mut authors_state: AuthorStepState,
         curr_pos: usize,
     ) {
-        if author_data.name.len() > 0 {
+        if authors_state.parsed_first {
             {
                 let mut this = self.inner.write();
-                this.authors.push(author_data);
-                this.by_section_length = curr_pos - this.title_length;
+                let last_author = this.authors.last().unwrap();
+                let name_slice = Slice::from(last_author.name.as_slice(), last_author.pos);
+                let import_vec = import_finder.find(name_slice);
+                this.imports.extend(import_vec);
             }
-            Step_Continue!(co, self, curr_pos, "{} parsed an author");
-            if *parsed_first {
-                {
-                    let mut this = self.inner.write();
-                    let last_author = this.authors.last().unwrap();
-                    let name_slice = Slice::from(last_author.name.as_slice(), last_author.pos);
-                    let import_vec = import_finder.find(name_slice);
-                    this.imports.extend(import_vec);
-                }
-                Step_Continue!(co, self, curr_pos, "{} parsed imports for author");
-            }
-            *parsed_first = true;
+            Step_Continue!(co, self, curr_pos, "{} parsed imports for author");
+        } else {
+            authors_state.parsed_first = true;
         }
     }
 
@@ -231,6 +239,10 @@ impl ParseTreeObj for Title {
         "Title"
     }
 
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -249,32 +261,32 @@ impl Paragraph for Title {
 }
 
 impl TreeWriter for Title {
-    fn write_lisp(&self, _vec: ParsableVec) -> String {
-        let this = self.inner.read();
+    fn write_lisp(&self, _vec: &ParsableVec) -> String {
         // escape potetial " in title
-        let title_str = str::from_utf8(&this.title).unwrap().replace("\"", "\\\"");
-        let title_length = this.title_length;
-        let by_section_length = this.by_section_length;
+        let title_str = str::from_utf8(&self.title).unwrap().replace("\"", "\\\"");
+        let title_length = self.title_length;
+        let author_section_length = self.author_section_length;
+        let index = self.index;
 
-        if by_section_length == 0 {
+        if author_section_length == 0 {
             format!("(title \"{title_str}\"$${title_length})")
         } else {
-            let authors_str = this.authors.iter().fold(String::new(), |acc, data| {
+            let authors_str = self.authors.iter().fold(String::new(), |acc, data| {
                 let author_str = str::from_utf8(&data.name).unwrap();
                 format!("{acc} \"{author_str}\"@{}$${}", data.pos, data.length)
             });
 
-            let imports_str = this.imports.iter().fold(String::new(), |acc, data| {
+            let imports_str = self.imports.iter().fold(String::new(), |acc, data| {
                 let import_str = data.import.name();
                 format!("{acc} \"{import_str}\"@{}$${}", data.pos, data.length)
             });
             format!(
-            "(title \"{title_str}\" (by${title_length}$${by_section_length} (authors{authors_str}) (imports{imports_str})))",
+            "(title:{index} \"{title_str}\" (by${title_length}$${author_section_length} (authors{authors_str}) (imports{imports_str})))",
             )
         }
     }
 
-    fn write_lint(&self, _vec: ParsableVec, writer: &mut LintWriter, _indent: u8) {
+    fn write_lint(&self, _vec: &ParsableVec, writer: &mut LintWriter, _indent: u8) {
         fn write_authors(writer: &mut LintWriter, this: &Title) {
             let mut authors = this.authors.iter().peekable();
             let mut imports = this.imports.iter().peekable();
@@ -297,17 +309,17 @@ impl TreeWriter for Title {
         }
 
         writer.write_up_to_as(LintColor::Title, self.title_length);
-        if self.by_section_length > 0 {
+        if self.author_section_length > 0 {
             writer.write_as(LintColor::TitleBy, 2);
             write_authors(writer, &self);
             writer.write_up_to_as(
                 LintColor::TitleSeparator,
-                self.title_length + self.by_section_length,
+                self.title_length + self.author_section_length,
             );
         }
     }
 
-    fn write_javascript(&self, _vec: ParsableVec, _indent: Indent) -> String {
+    fn write_javascript(&self, _vec: &ParsableVec, _indent: Indent) -> String {
         let title_str = str::from_utf8(&self.title).unwrap();
         let mut authors = self
             .authors

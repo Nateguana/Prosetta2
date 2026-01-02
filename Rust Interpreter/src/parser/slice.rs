@@ -55,6 +55,14 @@ impl<'a> Slice<'a> {
             pos: self.pos + offset,
         }
     }
+
+    pub fn start_at(self, index: usize) -> Slice<'a> {
+        Slice {
+            str: &self.str[index - self.pos..],
+            pos: index,
+        }
+    }
+
     pub fn slice(self, start: usize, end: usize) -> Slice<'a> {
         Slice {
             str: &self.str[start..end],

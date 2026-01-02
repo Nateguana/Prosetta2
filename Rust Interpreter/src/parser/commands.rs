@@ -40,6 +40,7 @@ pub trait ParseTreeObj: Sync + Send + Any + Debug {
     // where
     //     Self: Sized;
     fn name(&self) -> &'static str;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
     fn as_any(&self) -> &dyn Any;
 
     fn get_name(&self) -> String {

@@ -1,5 +1,5 @@
 use super::{
-    Command, Indent, LintWriter, Parsable, ParseTreeObj, ReturnTypeSet, TreeWriter, ParsableVec,
+    Command, Indent, LintWriter, Parsable, ParsableVec, ParseTreeObj, ReturnTypeSet, TreeWriter,
 };
 use std::any::Any;
 
@@ -17,7 +17,7 @@ impl ParseTreeObj for NoneCommand {
         "None"
     }
 
-    fn as_any(&self) -> &dyn Any {
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 }
@@ -35,11 +35,11 @@ impl Command for NoneCommand {
 }
 
 impl TreeWriter for NoneCommand {
-    fn write_lisp(&self, _vec: ParsableVec) -> String {
+    fn write_lisp(&self, _vec: &ParsableVec) -> String {
         format!("(TODO)")
     }
-    fn write_lint(&self, _vec: ParsableVec, _writer: &mut LintWriter, _indent: u8) {}
-    fn write_javascript(&self, _vec: ParsableVec, _indent: Indent) -> String {
+    fn write_lint(&self, _vec: &ParsableVec, _writer: &mut LintWriter, _indent: u8) {}
+    fn write_javascript(&self, _vec: &ParsableVec, _indent: Indent) -> String {
         format!("TODO()")
     }
 }

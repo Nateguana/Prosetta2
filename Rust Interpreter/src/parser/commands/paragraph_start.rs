@@ -1,15 +1,10 @@
+use super::{Context, Indent, LintWriter, Paragraph, Parsable, ParseTreeObj, ReturnType, Slice};
+use crate::parser::{context::ParseResult, parsable_vec::ParsableVec, tree_writer::TreeWriter};
 use std::any::Any;
-
-use crate::parser::tree_writer::TreeWriter;
-
-use super::{
-    Command, Context, FailReason, Indent, LintWriter, Paragraph, Parsable, ParseTreeObj,
-    ReturnType, RwLock, Slice,
-};
 
 #[derive(Debug)]
 pub struct ParagraphStart {
-    pub children: RwLock<Vec<Box<dyn Command>>>,
+    pub children: Vec<usize>,
     pub index: usize,
 }
 
@@ -20,6 +15,10 @@ impl ParagraphStart {
             index,
         }
     }
+
+    pub fn parse<'a>(&self, co: Context<'a>, _slice: Slice<'a>) -> ParseResult<'a> {
+        co.result_match(0, ReturnType::Null)
+    }
 }
 
 impl ParseTreeObj for ParagraphStart {
@@ -27,19 +26,15 @@ impl ParseTreeObj for ParagraphStart {
         "Paragraph"
     }
 
-    fn as_any(&self) -> &dyn Any {
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 }
 
-#[async_trait::async_trait]
+// #[async_trait::async_trait]
 impl Parsable for ParagraphStart {
-    async fn parse(
-        &self,
-        co: impl Context,
-        slice: Slice<'_>,
-    ) -> Result<(usize, ReturnType), FailReason> {
-        Ok((slice.end(), ReturnType::Null))
+    fn get_children(&self) -> Vec<usize> {
+        self.children.clone()
     }
 }
 
@@ -54,32 +49,28 @@ impl Paragraph for ParagraphStart {
 }
 
 impl TreeWriter for ParagraphStart {
-    fn write_lisp(&self) -> String {
-        let children = self.children.read();
+    fn write_lisp(&self, vec: &ParsableVec) -> String {
         let index = self.index;
 
-        let children_str = children.iter().fold(String::new(), |acc, data| {
-            let child_str = data.write_lisp();
+        let children_str = self.children.iter().fold(String::new(), |acc, &index| {
+            let child_str = vec.get(index).write_lisp(vec);
             format!("{acc} {child_str}")
         });
 
         format!("(paragraph {index}{children_str})")
     }
 
-    fn write_lint(&self, writer: &mut LintWriter, indent: u8) {
-        let children = self.children.read();
-
-        for child in children.iter() {
-            child.write_lint(writer, indent + 1);
+    fn write_lint(&self, vec: &ParsableVec, writer: &mut LintWriter, indent: u8) {
+        for &index in self.children.iter() {
+            vec.get(index).write_lint(vec, writer, indent);
         }
     }
 
-    fn write_javascript(&self, indent: Indent) -> String {
-        let children = self.children.read();
+    fn write_javascript(&self, vec: &ParsableVec, indent: Indent) -> String {
         let mut ret = format!("// Paragraph {}", self.index);
 
-        for child in children.iter() {
-            ret += &format!("\n{}", child.write_javascript(indent));
+        for &index in self.children.iter() {
+            ret += &format!("\n{}", vec.get(index).write_javascript(vec, indent));
         }
 
         ret
