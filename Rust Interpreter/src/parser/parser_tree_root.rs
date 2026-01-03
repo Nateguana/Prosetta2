@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::parser::{parsable_vec::ParsableVec, types::ReturnType};
+use crate::parser::{parsable_vec::ParsableVec, types::ReturnType, ParserSource};
 
 use super::{
     commands::{title::Title, Parsable, ParseTreeObj},
@@ -41,18 +41,23 @@ impl ParserTreeRoot {
         Self { tree: Vec::new() }
     }
 
-    pub fn parse<'slice>(&mut self, co: Context) -> ParseResult<'slice> {
-        self.step(co, ParserSourceStepper::new(), false)
+    pub fn parse(
+        &mut self,
+        co: Context,
+        source: &'static mut ParserSource,
+    ) -> ParseResult<'slice> {
+        self.step(co, source, ParserSourceStepper::new(), false)
     }
 
     fn step<'slice>(
         &mut self,
-        mut co: Context,
+        co: Context,
+        source: &'slice mut ParserSource,
         mut parser_stepper: ParserSourceStepper,
         mut has_title: bool,
     ) -> ParseResult<'slice> {
-        let paragraph_index = parser_stepper.step(co.get_source());
-        if let Some(paragraph) = parser_stepper.next(co.get_source()) {
+        let paragraph_index = parser_stepper.step(source);
+        if let Some(paragraph) = parser_stepper.next(source) {
             let slice = Slice::new(&*paragraph);
 
             if !has_title {
@@ -62,7 +67,7 @@ impl ParserTreeRoot {
                 let (index, ret) = co.result_child(
                     child,
                     Title::parse,
-                    move |s: &mut Self, cot, _, _| s.step(cot, parser_stepper, has_title),
+                    move |s: &mut Self, cot, _, _| s.step(cot, &mut*source, parser_stepper, has_title),
                     slice,
                 );
 

@@ -2,6 +2,8 @@
 
 // use std::{any::Any, future::IntoFuture, sync::Arc, task::Poll};
 
+use std::{mem::ManuallyDrop, ptr::NonNull};
+
 use context::Context;
 
 // use parking_lot::{MappedMutexGuard, Mutex, MutexGuard, RwLock};
@@ -76,20 +78,13 @@ pub struct ParserData {
 
 const MAX_STACK_FRAME_LEVEL: u8 = 100;
 
-// enum NextStepFunc<T> {
-//     Step(StepContinueFunc<T>),
-//     Child(ChildContinueFunc<T>, Option<(usize, ReturnType)>),
-// }
-
-// type NextStepFunc = Box<dyn Fn()>
-
 impl Parser {
     ///make a new parser with a source
     pub fn new(source: ParserSource) -> Self {
         Self { source }
     }
 
-    fn make_context(debug: bool, source: &mut ParserSource) -> ContextBase {
+    fn make_context(debug: bool) -> ContextBase {
         ContextBase {
             debug,
             color_finder: ColorFinder::new(),
@@ -98,24 +93,40 @@ impl Parser {
         }
     }
 
+    ///run the parser
     pub fn run(self) -> ParserData {
-        let mut source = self.source;
-        let parseables = self.run_impl(&mut source);
-        ParserData {
-            source: source,
-            tree: parseables,
+        let mut source = ManuallyDrop::new(Box::new(self.source));
+
+        // SAFETY: this is needed due to error "due to current limitations in the borrow checker." in parser stack functions
+        // this lies to the borrow checker that the lifetime of source is 'static when it is 'current_function 
+        // source will be valid for call to run_impl
+        let parseables = unsafe {
+            let source_ptr = NonNull::from(&mut *source);
+            let source_ref: &'static mut Box<ParserSource> = &mut *source_ptr.as_ptr();
+            Self::run_impl(source_ref)
+        };
+
+        // SAFETY: source is not stored anywhere else and any references
+        // to it on heap allocated functions have all been called
+        unsafe {
+            ParserData {
+                source: *ManuallyDrop::take(&mut source),
+                tree: parseables,
+            }
         }
     }
 
-    fn run_impl(self, source: &mut ParserSource) -> ParsableVec {
+    fn run_impl(source: &'static mut ParserSource) -> ParsableVec {
         let mut context_base = Self::make_context(false);
 
         let mut parseables = ParsableVec::new();
 
         parseables.push(Box::new(ParserTreeRoot::new()));
 
-        let mut stack: Vec<StepFunc<'_>> =
-            vec![ContextBase::make_root_method(ParserTreeRoot::parse, 1)];
+        let mut stack: Vec<StepFunc<'_>> = vec![ContextBase::make_root_method(
+            move |this, co| ParserTreeRoot::parse(this, co, &mut source),
+            1,
+        )];
 
         while let Some(func) = stack.pop() {
             match func(&mut context_base, &mut parseables) {
@@ -143,6 +154,13 @@ impl Parser {
             parseables.update();
         }
 
+        // // SAFETY:
+        // unsafe {
+        //     ParserData {
+        //         source: ManuallyDrop::take(&mut source),
+        //         tree: parseables,
+        //     }
+        // }
         parseables
     }
 

@@ -43,43 +43,40 @@ pub enum ParseResult<'slice> {
     },
 }
 
-pub struct ContextBase<'slice> {
+pub struct ContextBase {
     pub debug: bool,
     pub color_finder: ColorFinder,
     pub return_type: Option<(usize, ReturnType)>,
-    pub source: &'slice mut ParserSource,
     pub max_stack_frame_level: u8,
 }
 
-impl<'slice> ContextBase<'slice> {
-    pub fn make_root_method<P: Parsable + 'static>(
+impl ContextBase {
+    pub fn make_root_method<'slice, P: Parsable + 'static>(
         step: impl for<'cref, 'pref> Fn(&'pref mut P, Context<'slice, 'cref, 'pref>) -> ParseResult<'slice>
             + 'static,
         index: usize,
     ) -> StepFunc<'slice> {
-        Box::new(
-            move |base: &mut ContextBase<'slice>, pvec: &mut ParsableVec| {
-                let (this, vec_split) = pvec.split(index);
-                step(
-                    this.as_any_mut().downcast_mut().unwrap(),
-                    Context::new(base, index, 1, Slice::empty(), vec_split),
-                )
-            },
-        )
+        Box::new(move |base: &mut ContextBase, pvec: &mut ParsableVec| {
+            let (this, vec_split) = pvec.split(index);
+            step(
+                this.as_any_mut().downcast_mut().unwrap(),
+                Context::new(base, index, 1, Slice::empty(), vec_split),
+            )
+        })
     }
 }
 
-pub struct Context<'slice:'cref, 'cref, 'pref> {
-    base: &'cref mut ContextBase<'slice>,
+pub struct Context<'slice: 'cref, 'cref, 'pref> {
+    base: &'cref mut ContextBase,
     index: usize,
     slice: Slice<'slice>,
     level: u8,
     vec_split: ParseableVecSplit<'pref>,
 }
 
-impl<'slice:'cref, 'cref, 'pref> Context<'slice, 'cref, 'pref> {
+impl<'slice: 'cref, 'cref, 'pref> Context<'slice, 'cref, 'pref> {
     pub fn new(
-        base: &'cref mut ContextBase<'slice>,
+        base: &'cref mut ContextBase,
         index: usize,
         level: u8,
         slice: Slice<'slice>,
@@ -118,14 +115,9 @@ impl<'slice:'cref, 'cref, 'pref> Context<'slice, 'cref, 'pref> {
         &mut self.vec_split
     }
 
-    pub fn get_source(&self) -> &'slice mut ParserSource {
-        self.base.source
-    }
-
     pub fn get_slice(&self) -> Slice {
         self.slice
     }
-
 
     fn make_child_step<C: Parsable + 'static>(
         &self,
