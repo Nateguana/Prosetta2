@@ -1,4 +1,6 @@
-use crate::parser::ParserSource;
+use crate::parser::{
+    parsable_vec::ParsableVec, tree_writer::lint_writer::LintWriter, ParserSource,
+};
 
 use super::{
     lint_writer::{LintColor, LintData},
@@ -18,14 +20,12 @@ impl TermWriter {
             index: 0,
         }
     }
-
-    pub fn step(&mut self, tree: &Vec<Box<dyn Paragraph>>) -> bool {
+    pub fn step(&mut self, tree: &ParsableVec, index: usize) {
         self.index += 1;
-        self.data = tree
-            .get(self.index - 1)
-            .map(|e| TreeAllWriter::write_all_lint(e.as_ref()));
-        // println!("{:?}", self.data);
-        self.data.is_some()
+
+        let mut lint_writer = LintWriter::new();
+        tree.get(index).write_lint(tree, &mut lint_writer, 0);
+        self.data = Some(lint_writer.into_data());
     }
 
     pub fn next(&self, source: &ParserSource) -> String {

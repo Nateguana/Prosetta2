@@ -16,7 +16,7 @@ impl ParagraphStart {
         }
     }
 
-    pub fn parse<'a>(&self, co: Context<'a>, _slice: Slice<'a>) -> ParseResult<'a> {
+    pub fn parse(&self, co: Context, _slice: Slice) -> ParseResult {
         co.result_match(0, ReturnType::Null)
     }
 }
@@ -27,6 +27,10 @@ impl ParseTreeObj for ParagraphStart {
     }
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
         self
     }
 }

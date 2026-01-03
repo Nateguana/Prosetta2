@@ -4,7 +4,7 @@ use bstr::{ByteSlice, ByteVec};
 use itertools::Itertools;
 use std::str;
 
-use crate::parser::context::{ParsableVec, ParseResult};
+use crate::parser::{context::ParseResult, parsable_vec::ParsableVec};
 
 use super::{
     close_data, CloseData, Context, FailReason, Import, ImportData, ImportFinder, Indent,
@@ -67,14 +67,14 @@ impl Title {
         let is_first_line = space.len() > 0;
 
         if title.len() == 0 {
-            co.result_cont(
-                move |this, co, _| co.result_match(title.len(), ReturnType::Null),
+            co.result_cont::<Self>(
+                move |_this, co, slice| co.result_match(slice.len(), ReturnType::Null),
                 title,
                 format!("Title never found keyword \"by\""),
             )
         } else if !is_first_line && title.str[..3].to_ascii_lowercase() == b"by " {
             self.author_section_length = 2;
-            co.result_cont(
+            co.result_cont::<Self>(
                 Title::parse_authors,
                 curr_slice.offset(3),
                 format!("Title found author section with the keyword \"by\""),
@@ -90,15 +90,15 @@ impl Title {
                 "Title did not find keyword \"by\" so added line to title"
             };
 
-            co.result_cont(
-                move |this, co, slice| this.find_title(co, rest, b"\n"),
+            co.result_cont::<Self>(
+                move |this, co, slice| this.find_title(co, slice, b"\n"),
                 rest,
-                format!(description),
+                description.to_string(),
             )
         }
     }
 
-    fn parse_authors(&self, co: Context, slice: Slice) -> ParseResult {
+    fn parse_authors(&mut self, co: Context, slice: Slice) -> ParseResult {
         let author_state = AuthorStepState {
             import_finder: ImportFinder::new(Import::get_all()),
             parsed_first: false,
@@ -110,7 +110,7 @@ impl Title {
             },
         };
 
-        self.find_authors_length_check(co, curr_slice, author_state)
+        self.find_authors_length_check(co, slice, author_state)
     }
 
     // this exists because find_authors is called by itself and the last author needs to be added if length is 0 in that case
@@ -118,13 +118,13 @@ impl Title {
         &mut self,
         co: Context,
         slice: Slice,
-        mut authors_state: AuthorStepState,
+        authors_state: AuthorStepState,
     ) -> ParseResult {
         self.author_section_length = slice.pos - self.title_length;
         if slice.len() == 0 {
             co.result_match(slice.end(), ReturnType::Null)
         } else {
-            self.find_authors(co, curr_slice, author_state)
+            self.find_authors(co, slice, authors_state)
         }
     }
 
@@ -149,7 +149,7 @@ impl Title {
                 self.add_author(co, rest, authors_state)
 
             // if word is part of author name
-            // edit current author
+            // edit current author and loop
             } else {
                 let author_data = &mut authors_state.author_data;
                 if author_data.pos == 0 {
@@ -160,18 +160,22 @@ impl Title {
                 author_data.length = word.end() - author_data.pos;
                 authors_state.sep = b" ";
 
-                co.result_cont(step, slice, format!("Title found an author name"))
+                co.result_cont::<Self>(
+                    move |this, co, slice| this.find_authors(co, slice, authors_state),
+                    rest,
+                    format!("Title found an author name"),
+                )
             }
 
         // slice is empty
         // add last author if needed
         } else {
-            self.add_author(co, rest, authors_state)
+            self.add_author(co, slice, authors_state)
         }
     }
 
     fn add_author(
-        &self,
+        &mut self,
         co: Context,
         rest: Slice,
         mut authors_state: AuthorStepState,
@@ -187,7 +191,7 @@ impl Title {
             );
             self.authors.push(author_data);
         }
-        co.result_cont(
+        co.result_cont::<Self>(
             move |this, co, slice| this.add_imports(co, slice, authors_state),
             rest,
             format!("Title found a separator"),
@@ -195,24 +199,28 @@ impl Title {
     }
 
     fn add_imports(
-        &self,
+        &mut self,
         co: Context,
         slice: Slice,
         mut authors_state: AuthorStepState,
-        curr_pos: usize,
-    ) {
-        if authors_state.parsed_first {
-            {
-                let mut this = self.inner.write();
-                let last_author = this.authors.last().unwrap();
-                let name_slice = Slice::from(last_author.name.as_slice(), last_author.pos);
-                let import_vec = import_finder.find(name_slice);
-                this.imports.extend(import_vec);
-            }
-            Step_Continue!(co, self, curr_pos, "{} parsed imports for author");
+    ) -> ParseResult {
+        let description = if authors_state.parsed_first {
+            // let mut this = self;
+            let last_author = self.authors.last().unwrap();
+            let name_slice = Slice::from_buf(last_author.name.as_slice(), last_author.pos);
+            let import_vec = authors_state.import_finder.find(name_slice);
+            self.imports.extend(import_vec);
+            "Title found imports in author"
         } else {
             authors_state.parsed_first = true;
-        }
+            "Title passed imports for first author"
+        };
+
+        co.result_cont::<Self>(
+            move |this, co, slice| this.find_authors(co, slice, authors_state),
+            slice,
+            description.to_string(),
+        )
     }
 
     fn is_separator(str: &[u8]) -> CloseData {

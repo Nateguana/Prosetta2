@@ -90,6 +90,7 @@ impl Parser {
             color_finder: ColorFinder::new(),
             return_type: None,
             max_stack_frame_level: MAX_STACK_FRAME_LEVEL,
+            source_index: 0,
         }
     }
 
@@ -98,7 +99,7 @@ impl Parser {
         let mut source = ManuallyDrop::new(Box::new(self.source));
 
         // SAFETY: this is needed due to error "due to current limitations in the borrow checker." in parser stack functions
-        // this lies to the borrow checker that the lifetime of source is 'static when it is 'current_function 
+        // this lies to the borrow checker that the lifetime of source is 'static when it is 'current_function
         // source will be valid for call to run_impl
         let parseables = unsafe {
             let source_ptr = NonNull::from(&mut *source);
@@ -123,13 +124,13 @@ impl Parser {
 
         parseables.push(Box::new(ParserTreeRoot::new()));
 
-        let mut stack: Vec<StepFunc<'_>> = vec![ContextBase::make_root_method(
-            move |this, co| ParserTreeRoot::parse(this, co, &mut source),
+        let mut stack: Vec<StepFunc> = vec![ContextBase::make_root_method(
+            move |this, co, source| ParserTreeRoot::parse(this, co, source),
             1,
         )];
 
         while let Some(func) = stack.pop() {
-            match func(&mut context_base, &mut parseables) {
+            match func(&mut context_base, &mut parseables, source) {
                 context::ParseResult::Match { pos, return_type } => {
                     context_base.return_type = Some((pos, return_type));
                 }

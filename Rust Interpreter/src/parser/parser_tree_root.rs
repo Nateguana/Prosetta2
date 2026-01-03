@@ -41,21 +41,17 @@ impl ParserTreeRoot {
         Self { tree: Vec::new() }
     }
 
-    pub fn parse(
-        &mut self,
-        co: Context,
-        source: &'static mut ParserSource,
-    ) -> ParseResult<'slice> {
+    pub fn parse(&mut self, co: Context, source: &mut ParserSource) -> ParseResult {
         self.step(co, source, ParserSourceStepper::new(), false)
     }
 
-    fn step<'slice>(
+    fn step(
         &mut self,
         co: Context,
-        source: &'slice mut ParserSource,
+        source: &mut ParserSource,
         mut parser_stepper: ParserSourceStepper,
         mut has_title: bool,
-    ) -> ParseResult<'slice> {
+    ) -> ParseResult {
         let paragraph_index = parser_stepper.step(source);
         if let Some(paragraph) = parser_stepper.next(source) {
             let slice = Slice::new(&*paragraph);
@@ -64,10 +60,10 @@ impl ParserTreeRoot {
                 let child = Title::new(paragraph_index);
                 has_title = true;
 
-                let (index, ret) = co.result_child(
+                let (index, ret) = co.result_root_child(
                     child,
                     Title::parse,
-                    move |s: &mut Self, cot, _, _| s.step(cot, &mut*source, parser_stepper, has_title),
+                    move |s: &mut Self, cot,  source| s.step(cot, source, parser_stepper, has_title),
                     slice,
                 );
 

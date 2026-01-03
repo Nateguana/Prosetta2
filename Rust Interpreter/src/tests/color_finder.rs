@@ -15,7 +15,7 @@ fn test_word_red() {
     let finder = ColorFinder::new();
 
     assert_eq!(
-        finder.find(Slice::from(word, 0)),
+        finder.find(Slice::from_buf(word, 0)),
         Some(("red".to_string(), 3))
     );
 }
@@ -28,7 +28,7 @@ fn test_word_red_space() {
     let finder = ColorFinder::new();
 
     assert_eq!(
-        finder.find(Slice::from(word, 0)),
+        finder.find(Slice::from_buf(word, 0)),
         Some(("red".to_string(), 3))
     );
 }
@@ -40,10 +40,10 @@ fn test_word_red_spaces() {
 
     let finder = ColorFinder::new();
 
-    assert_eq!(finder.find(Slice::from(word, 0)), None);
+    assert_eq!(finder.find(Slice::from_buf(word, 0)), None);
 
     assert_eq!(
-        finder.find(Slice::from(&word[1..], 1)),
+        finder.find(Slice::from_buf(&word[1..], 1)),
         Some(("red".to_string(), 3))
     );
 }
@@ -56,19 +56,19 @@ fn test_word_white_smoke() {
     let finder = ColorFinder::new();
 
     assert_eq!(
-        finder.find(Slice::from(&word[..5], 0)),
+        finder.find(Slice::from_buf(&word[..5], 0)),
         Some(("white".to_string(), 5))
     );
     assert_eq!(
-        finder.find(Slice::from(&word[..10], 0)),
+        finder.find(Slice::from_buf(&word[..10], 0)),
         Some(("white".to_string(), 5))
     );
     assert_eq!(
-        finder.find(Slice::from(&word[..12], 0)),
+        finder.find(Slice::from_buf(&word[..12], 0)),
         Some(("white".to_string(), 5))
     );
     assert_eq!(
-        finder.find(Slice::from(&word[..], 0)),
+        finder.find(Slice::from_buf(&word[..], 0)),
         Some(("whitesmoke".to_string(), 13))
     );
 }
@@ -97,7 +97,7 @@ fn test_all_colors_match() {
                 .collect();
 
             assert_eq!(
-                finder.find(Slice::from(result.as_slice(), 0)),
+                finder.find(Slice::from_buf(result.as_slice(), 0)),
                 Some((colors_result.clone(), result.len() - end_len))
             );
         }
@@ -150,7 +150,7 @@ fn test_all_colors_no_match() {
         let slice = bstr::join(b" ", set.iter());
 
         assert_eq!(
-            finder.find(Slice::from(slice.as_slice(), 0)).map(|e| e.1),
+            finder.find(Slice::from_buf(slice.as_slice(), 0)).map(|e| e.1),
             result,
             "{:?} failed",
             slice
@@ -176,6 +176,6 @@ fn test_all_colors_first_space() {
     for color in colors {
         let mut vec: Vec<u8> = b" ".to_vec();
         vec.extend_from_slice(color);
-        assert_eq!(finder.find(Slice::from(vec.as_slice(), 0)), None);
+        assert_eq!(finder.find(Slice::from_buf(vec.as_slice(), 0)), None);
     }
 }

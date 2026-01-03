@@ -88,13 +88,14 @@ fn main() {
 
     // let k = mem::size_of::<Mutex<u64>>();
 
-    let debug_program = !args().skip(1).any(|e| e.contains("r"));
+    let debug_program = false;
+    // !args().skip(1).any(|e| e.contains("r"));
 
     let source = ParserSource::from_stdin();
     let parser = Parser::new(source);
 
     if black_box(debug_program) {
-        debug(parser);
+        // debug(parser);
     } else {
         run(parser);
     }
@@ -127,26 +128,26 @@ fn main() {
     // let _ = io::stdin().read(&mut [0u8]).unwrap();
 }
 
-fn debug(parser: Parser) {
-    let mut debugger = parser.debug();
+// fn debug(parser: Parser) {
+//     let mut debugger = parser.debug();
 
-    // let mut last_step = None;
-    while let Some(step) = debugger.next() {
-        println!("{:?}", step);
-        println!("{}", TreeAllWriter::write_all_lisp(&debugger.tree()));
+//     // let mut last_step = None;
+//     while let Some(step) = debugger.next() {
+//         println!("{:?}", step);
+//         println!("{}", TreeAllWriter::write_all_lisp(&debugger.tree()));
 
-        let mut writer = TermWriter::new();
-        while writer.step(&debugger.tree()) {
-            let str = writer.next(&debugger.get_source());
-            println!("{}", str);
-        }
-        // for paragraph in debugger.get_source().get_iter() {
-        //     println!("{:?}", str::from_utf8(paragraph).unwrap());
-        // }
-        println!("{}", TreeAllWriter::write_all_javascript(&debugger.tree()));
-        println!("--------------------------------");
-    }
-}
+//         let mut writer = TermWriter::new();
+//         while writer.step(&debugger.tree()) {
+//             let str = writer.next(&debugger.get_source());
+//             println!("{}", str);
+//         }
+//         // for paragraph in debugger.get_source().get_iter() {
+//         //     println!("{:?}", str::from_utf8(paragraph).unwrap());
+//         // }
+//         println!("{}", TreeAllWriter::write_all_javascript(&debugger.tree()));
+//         println!("--------------------------------");
+//     }
+// }
 
 fn run(parser: Parser) {
     let parser_data = parser.run();
@@ -154,7 +155,10 @@ fn run(parser: Parser) {
     println!("--------------------------------");
     // println!("{:?}", parser_data.source);
     let mut writer = TermWriter::new();
-    while writer.step(&parser_data.tree) {
+
+    let paragraph_starts  = parser_data.tree.get(1).get_children();
+    for starts in paragraph_starts {
+        writer.step(&parser_data.tree, starts);
         let str = writer.next(&parser_data.source);
         println!("{}", str);
     }

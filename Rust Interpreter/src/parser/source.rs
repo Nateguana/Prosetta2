@@ -8,17 +8,6 @@ use std::{
 
 use bstr::{ByteSlice, ByteVec};
 use itertools::Itertools;
-// use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard};
-// use super::rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-// use streaming_iterator::StreamingIterator;
-
-// pub type ParserSourceIter<'a> = Flatten<std::vec::IntoIter<Box<dyn Iterator<Item = &'a u8> + 'a>>>;
-
-// macro_rules! make_iter {
-//     ($expr:expr) => {
-//         Box::new($expr) as Box<dyn iter::Iterator<Item = &u8>>
-//     };
-// }
 
 #[derive(Debug)]
 enum Source {

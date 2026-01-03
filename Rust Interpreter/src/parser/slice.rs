@@ -17,6 +17,12 @@ pub struct Slice<'a> {
     pub pos: usize,
 }
 
+#[derive(PartialEq, Clone, Copy)]
+pub struct SliceData {
+    pub pos: usize,
+    pub len: usize,
+}
+
 impl<'a> Debug for Slice<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Slice")
@@ -31,8 +37,22 @@ impl<'a> Slice<'a> {
         Slice { str: buf, pos: 0 }
     }
 
-    pub fn from(buf: &'a [u8], pos: usize) -> Self {
+    pub fn from_buf(buf: &'a [u8], pos: usize) -> Self {
         Slice { str: buf, pos }
+    }
+
+    pub fn from(buf: &'a [u8], data: SliceData) -> Self {
+        Slice {
+            str: &buf[data.pos..data.pos + data.len],
+            pos: data.pos,
+        }
+    }
+
+    pub fn data(self) -> SliceData {
+        SliceData {
+            pos: self.pos,
+            len: self.str.len(),
+        }
     }
 
     pub fn empty() -> Self {
