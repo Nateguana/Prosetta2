@@ -10,7 +10,7 @@ use parser::{
 };
 
 mod parser;
-use crate::parser::Parser;
+use crate::parser::{Parser, ParserStepResult};
 
 // // #[path = "testing/testing.rs"]
 // mod testing;
@@ -88,14 +88,14 @@ fn main() {
 
     // let k = mem::size_of::<Mutex<u64>>();
 
-    let debug_program = false;
+    let debug_program = true;
     // !args().skip(1).any(|e| e.contains("r"));
 
     let source = ParserSource::from_stdin();
     let parser = Parser::new(source);
 
     if black_box(debug_program) {
-        // debug(parser);
+        debug(parser);
     } else {
         run(parser);
     }
@@ -128,26 +128,68 @@ fn main() {
     // let _ = io::stdin().read(&mut [0u8]).unwrap();
 }
 
-// fn debug(parser: Parser) {
-//     let mut debugger = parser.debug();
+fn print_debug_step(step: &ParserStepResult) {
+    match step {
+        ParserStepResult::Done => {
+            println!("Parser is Done")
+        }
+        ParserStepResult::Match {
+            name,
+            pos,
+            return_type,
+        } => {
+            println!("Matched: {name} at {pos} with return type {return_type:?}");
+        }
+        ParserStepResult::Fail { name, reason } => {
+            println!("Failed: {name} because {reason:?}");
+        }
+        ParserStepResult::Continue {
+            description,
+            slice,name
+        } => {
+            let pos=slice.pos;
+             println!("Continue: {name} at {pos} because {description}");
+        }
+        ParserStepResult::Child {
+            child_name,
+            parent_name,
+            slice,
+        } => {
+            let pos=slice.pos;
+             println!("Child: {parent_name} to {child_name} at {pos}");
+        }
+    }
+}
 
-//     // let mut last_step = None;
-//     while let Some(step) = debugger.next() {
-//         println!("{:?}", step);
-//         println!("{}", TreeAllWriter::write_all_lisp(&debugger.tree()));
+fn debug(parser: Parser) {
+    let mut debugger = parser.debug();
 
-//         let mut writer = TermWriter::new();
-//         while writer.step(&debugger.tree()) {
-//             let str = writer.next(&debugger.get_source());
-//             println!("{}", str);
-//         }
-//         // for paragraph in debugger.get_source().get_iter() {
-//         //     println!("{:?}", str::from_utf8(paragraph).unwrap());
-//         // }
-//         println!("{}", TreeAllWriter::write_all_javascript(&debugger.tree()));
-//         println!("--------------------------------");
-//     }
-// }
+    // let mut last_step = None;
+    loop {
+        let step = debugger.step();
+        println!("--------------------------------");
+        print_debug_step(&step);
+
+        println!("{}", TreeAllWriter::write_all_lisp(&debugger.tree()));
+
+        let mut writer = TermWriter::new();
+        let paragraph_starts = debugger.tree().get(1).get_children();
+        for starts in paragraph_starts {
+            writer.step(&debugger.tree(), starts);
+            let str = writer.next(&debugger.get_source());
+            println!("{}", str);
+        }
+        // for paragraph in debugger.get_source().get_iter() {
+        //     println!("{:?}", str::from_utf8(paragraph).unwrap());
+        // }
+        println!("{}", TreeAllWriter::write_all_javascript(&debugger.tree()));
+        // println!("--------------------------------");
+
+        if let ParserStepResult::Done = step {
+            break;
+        }
+    }
+}
 
 fn run(parser: Parser) {
     let parser_data = parser.run();
@@ -156,14 +198,16 @@ fn run(parser: Parser) {
     // println!("{:?}", parser_data.source);
     let mut writer = TermWriter::new();
 
-    let paragraph_starts  = parser_data.tree.get(1).get_children();
+    println!("{}", TreeAllWriter::write_all_lisp(&parser_data.tree));
+
+    let paragraph_starts = parser_data.tree.get(1).get_children();
     for starts in paragraph_starts {
         writer.step(&parser_data.tree, starts);
         let str = writer.next(&parser_data.source);
         println!("{}", str);
     }
+
     println!("{}", TreeAllWriter::write_all_javascript(&parser_data.tree));
-    println!("{}", TreeAllWriter::write_all_lisp(&parser_data.tree));
 }
 // #[allow(dead_code)]
 // static MILO_POEM: [&[u8]; 2] = [

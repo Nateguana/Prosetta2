@@ -24,18 +24,23 @@ pub type StepFunc = Box<
 
 pub enum ParseResult {
     Match {
+        name: &'static str,
         pos: usize,
         return_type: ReturnType,
     },
     Fail {
+        name: &'static str,
         reason: FailReason,
     },
     Continue {
+        name: &'static str,
         description: String,
         step: StepFunc,
         slice: SliceData,
     },
     Child {
+        child_name: &'static str,
+        parent_name: &'static str,
         child: usize,
         step: StepFunc,
         back: StepFunc,
@@ -64,9 +69,10 @@ impl ContextBase {
         Box::new(
             move |base: &mut ContextBase, pvec: &mut ParsableVec, source: &mut ParserSource| {
                 let (this, vec_split) = pvec.split(index);
+                let name = this.name();
                 step(
                     this.as_any_mut().downcast_mut().unwrap(),
-                    Context::new(base, index, 1, vec_split),
+                    Context::new(base, index, 1, name, vec_split),
                     source,
                 )
             },
@@ -77,6 +83,7 @@ impl ContextBase {
 pub struct Context<'cref, 'pref> {
     base: &'cref mut ContextBase,
     index: usize,
+    name: &'static str,
     level: u8,
     vec_split: ParseableVecSplit<'pref>,
 }
@@ -86,6 +93,7 @@ impl<'cref, 'pref> Context<'cref, 'pref> {
         base: &'cref mut ContextBase,
         index: usize,
         level: u8,
+        name: &'static str,
         // slice: Slice<'slice>,
         vec_split: ParseableVecSplit<'pref>,
     ) -> Self {
@@ -93,7 +101,7 @@ impl<'cref, 'pref> Context<'cref, 'pref> {
             base,
             index,
             level,
-            // slice,
+            name,
             vec_split,
         }
     }
@@ -141,17 +149,20 @@ impl<'cref, 'pref> Context<'cref, 'pref> {
         slice_data: SliceData,
     ) -> StepFunc {
         let new_level = self.level + 1;
+        let name = self.name;
         Box::new(move |base, pvec, source| {
             let slice = Slice::from(source.get_source(base.source_index).unwrap(), slice_data);
             if new_level > base.max_stack_frame_level {
                 ParseResult::Fail {
+                    name: name,
                     reason: FailReason::StackFrameLimit,
                 }
             } else {
                 let (this, vec_split) = pvec.split(child_index);
+                let name = this.name();
                 child_step(
                     this.as_any_mut().downcast_mut().unwrap(),
-                    Context::new(base, child_index, new_level, vec_split),
+                    Context::new(base, child_index, new_level, name, vec_split),
                     slice,
                 )
             }
@@ -169,6 +180,7 @@ impl<'cref, 'pref> Context<'cref, 'pref> {
             + 'static,
         slice_data: SliceData,
     ) -> StepFunc {
+        let name = self.name;
         let level = self.level;
         let this_index = self.index;
         Box::new(move |base, pvec, source| {
@@ -180,7 +192,7 @@ impl<'cref, 'pref> Context<'cref, 'pref> {
                 slice = slice.start_at(index);
             }
             let (this, vec_split) = pvec.split(this_index);
-            let co = Context::new(base, this_index, level, vec_split);
+            let co = Context::new(base, this_index, level, name, vec_split);
             back_step(
                 this.as_any_mut().downcast_mut::<P>().unwrap(),
                 co,
@@ -203,11 +215,15 @@ impl<'cref, 'pref> Context<'cref, 'pref> {
             + 'static,
         slice: Slice,
     ) -> (usize, ParseResult) {
+        let child_name = child.name();
         let child_index = self.vec_split.push(Box::new(child));
         // let parent_index = self.index;
         let slice_data = slice.data();
+        let name = self.name;
 
         let result = ParseResult::Child {
+            child_name: child_name,
+            parent_name: name,
             child: child_index,
             step: self.make_child_step(child_index, child_step, slice_data),
             back: ContextBase::make_root_method(back_step, self.index),
@@ -231,11 +247,15 @@ impl<'cref, 'pref> Context<'cref, 'pref> {
             + 'static,
         slice: Slice,
     ) -> (usize, ParseResult) {
+        let child_name = child.name();
         let child_index = self.vec_split.push(Box::new(child));
         // let parent_index = self.index;
         let slice_data = slice.data();
+        let name = self.name;
 
         let result = ParseResult::Child {
+            child_name: child_name,
+            parent_name: name,
             child: child_index,
             step: self.make_child_step(child_index, child_step, slice_data),
             back: self.make_parent_step(back_step, slice_data),
@@ -255,12 +275,14 @@ impl<'cref, 'pref> Context<'cref, 'pref> {
         let slice_data = slice.data();
         let index = self.index;
         let level = self.level;
+        let name = self.name;
 
         let result = ParseResult::Continue {
+            name,
             step: Box::new(move |base, pvec, source| {
                 let slice = Slice::from(source.get_source(base.source_index).unwrap(), slice_data);
                 let (this, vec_split) = pvec.split(index);
-                let co = Context::new(base, index, level, vec_split);
+                let co = Context::new(base, index, level, name, vec_split);
                 step(this.as_any_mut().downcast_mut::<P>().unwrap(), co, slice)
             }),
             description,
@@ -271,10 +293,17 @@ impl<'cref, 'pref> Context<'cref, 'pref> {
     }
 
     pub fn result_match(self, pos: usize, return_type: ReturnType) -> ParseResult {
-        ParseResult::Match { pos, return_type }
+        ParseResult::Match {
+            name: self.name,
+            pos,
+            return_type,
+        }
     }
 
     pub fn result_fail(self, reason: FailReason) -> ParseResult {
-        ParseResult::Fail { reason }
+        ParseResult::Fail {
+            name: self.name,
+            reason,
+        }
     }
 }

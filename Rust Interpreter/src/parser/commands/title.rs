@@ -64,7 +64,14 @@ impl Title {
             crate::ghidra_marker!("esi");
         }
 
-        let is_first_line = space.len() > 0;
+        let is_first_line = space.len() == 0;
+
+        // println!(
+        //     "{} - {:?}- {}",
+        //     is_first_line,
+        //     title.str[..3].to_ascii_lowercase(),
+        //     title.len() 
+        // );
 
         if title.len() == 0 {
             co.result_cont::<Self>(
@@ -74,6 +81,7 @@ impl Title {
             )
         } else if !is_first_line && title.str[..3].to_ascii_lowercase() == b"by " {
             self.author_section_length = 2;
+            println!("parsed title");
             co.result_cont::<Self>(
                 Title::parse_authors,
                 curr_slice.offset(3),
@@ -217,7 +225,7 @@ impl Title {
         };
 
         co.result_cont::<Self>(
-            move |this, co, slice| this.find_authors(co, slice, authors_state),
+            move |this, co, slice| this.find_authors_length_check(co, slice, authors_state),
             slice,
             description.to_string(),
         )

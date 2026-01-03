@@ -106,7 +106,10 @@ impl ParserSourceStepper {
         let mut paragraph = Vec::new();
         loop {
             let mut new_input = Vec::new();
+            // println!("before read:");
             let has_failed = stdin.read_until(b'\n', &mut new_input).is_err();
+
+            // println!("failed:{}",has_failed);
 
             // remove newlines if it exists
             while let Some(b'\n' | b'\r') = new_input.last() {
@@ -124,6 +127,7 @@ impl ParserSourceStepper {
             if paragraph.len() != 0 {
                 paragraph.push(b'\n');
             }
+
             paragraph.append(&mut new_input);
             // has_input = true;
         }
@@ -134,9 +138,6 @@ impl ParserSourceStepper {
         let mut start = 0;
         let mut last_empty = false;
 
-        // while let Some() = buf.iter().rposition(|n| e == b'\n' || e == b'\r'){
-
-        // }
         for index in buf.iter().positions(|&e| e == b'\n' || e == b'\r') {
             let line = &buf[start..index - 1];
             let is_empty = line.trim().len() == 0 && buf[index] == b'\n';

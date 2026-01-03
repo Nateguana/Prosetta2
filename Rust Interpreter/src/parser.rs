@@ -46,6 +46,7 @@ use crate::parser::{
     fail_reason::FailReason,
     parsable_vec::{ParsableVec, ParseableVecSplit},
     parser_tree_root::ParserTreeRoot,
+    slice::SliceData,
     types::ReturnType,
 };
 
@@ -71,10 +72,12 @@ pub struct ParserData {
     pub tree: ParsableVec,
 }
 
-// pub struct ParserDebug<'a> {
-//     context_base: ContextBase,
-//     stack: Vec<StepFunc<'a>>,
-// }
+pub struct ParserDebug {
+    context_base: ContextBase,
+    stack: Vec<StepFunc>,
+    parseables: ParsableVec,
+    source: ParserSource,
+}
 
 const MAX_STACK_FRAME_LEVEL: u8 = 100;
 
@@ -96,28 +99,17 @@ impl Parser {
 
     ///run the parser
     pub fn run(self) -> ParserData {
-        let mut source = ManuallyDrop::new(Box::new(self.source));
+        let mut source = self.source;
 
-        // SAFETY: this is needed due to error "due to current limitations in the borrow checker." in parser stack functions
-        // this lies to the borrow checker that the lifetime of source is 'static when it is 'current_function
-        // source will be valid for call to run_impl
-        let parseables = unsafe {
-            let source_ptr = NonNull::from(&mut *source);
-            let source_ref: &'static mut Box<ParserSource> = &mut *source_ptr.as_ptr();
-            Self::run_impl(source_ref)
-        };
+        let parseables = Self::run_impl(&mut source);
 
-        // SAFETY: source is not stored anywhere else and any references
-        // to it on heap allocated functions have all been called
-        unsafe {
-            ParserData {
-                source: *ManuallyDrop::take(&mut source),
-                tree: parseables,
-            }
+        ParserData {
+            source: source,
+            tree: parseables,
         }
     }
 
-    fn run_impl(source: &'static mut ParserSource) -> ParsableVec {
+    fn run_impl(source: &mut ParserSource) -> ParsableVec {
         let mut context_base = Self::make_context(false);
 
         let mut parseables = ParsableVec::new();
@@ -130,24 +122,18 @@ impl Parser {
         )];
 
         while let Some(func) = stack.pop() {
+            //  println!("step");
             match func(&mut context_base, &mut parseables, source) {
-                context::ParseResult::Match { pos, return_type } => {
+                context::ParseResult::Match {
+                    pos, return_type, ..
+                } => {
                     context_base.return_type = Some((pos, return_type));
                 }
-                context::ParseResult::Fail { reason: _ } => {}
-                context::ParseResult::Continue {
-                    description: _,
-                    step,
-                    slice: _,
-                } => {
+                context::ParseResult::Fail { .. } => {}
+                context::ParseResult::Continue { step, .. } => {
                     stack.push(step);
                 }
-                context::ParseResult::Child {
-                    child: _,
-                    step,
-                    back,
-                    slice: _,
-                } => {
+                context::ParseResult::Child { step, back, .. } => {
                     stack.push(back);
                     stack.push(step);
                 }
@@ -165,102 +151,119 @@ impl Parser {
         parseables
     }
 
-    // pub fn debug(self) -> ParserDebug {
-    //     ParserDebug {
-    //         context_base: self.make_context(false),
-    //         stack: Vec::new(),
-    //     }
-    // }
+    pub fn debug(self) -> ParserDebug {
+        let mut parseables = ParsableVec::new();
+
+        parseables.push(Box::new(ParserTreeRoot::new()));
+        ParserDebug {
+            context_base: Self::make_context(true),
+            stack: vec![ContextBase::make_root_method(
+                move |this, co, source| ParserTreeRoot::parse(this, co, source),
+                1,
+            )],
+            parseables,
+            source: self.source,
+        }
+    }
 }
 
-// enum ParserStepResult {
-//     Done,
-//     Match {
-//         pos: usize,
-//         return_type: ReturnType,
-//     },
-//     Fail {
-//         reason: FailReason,
-//     },
-//     Continue {
-//         description: String,
-//         step: StepFunc,
-//         slice: Slice,
-//     },
-//     Child {
-//         child: usize,
-//         step: StepFunc,
-//         back: StepFunc,
-//         slice: Slice,
-//     },
-// }
+pub enum ParserStepResult {
+    Done,
+    Match {
+        name: &'static str,
+        pos: usize,
+        return_type: ReturnType,
+    },
+    Fail {
+        name: &'static str,
+        reason: FailReason,
+    },
+    Continue {
+        name: &'static str,
+        description: String,
+        slice: SliceData,
+    },
+    Child {
+        child_name: &'static str,
+        parent_name: &'static str,
+        slice: SliceData,
+    },
+}
 
-// impl ParserDebug {
-//     pub fn step(&mut self) -> ParserStepResult {
-//         if let Some(func) = stack.pop() {
-//             match func(&mut context_base) {
-//                 context::ParseResult::Match { pos, return_type } => {
-//                     context_base.return_type = Some((pos, return_type));
-//                     ParserStepResult
-//                 }
-//                 context::ParseResult::Fail { reason } => {
+impl ParserDebug {
+    pub fn step<'a>(&'a mut self) -> ParserStepResult {
+        if let Some(func) = self.stack.pop() {
+            //  println!("step");
+            let result = match func(
+                &mut self.context_base,
+                &mut self.parseables,
+                &mut self.source,
+            ) {
+                context::ParseResult::Match {
+                    pos,
+                    return_type,
+                    name,
+                    ..
+                } => {
+                    self.context_base.return_type = Some((pos, return_type));
+                    ParserStepResult::Match {
+                        pos,
+                        return_type,
+                        name,
+                    }
+                }
+                context::ParseResult::Fail { reason, name } => {
+                    ParserStepResult::Fail { name, reason }
+                }
+                context::ParseResult::Continue {
+                    step,
+                    slice,
+                    name,
+                    description,
+                } => {
+                    self.stack.push(step);
+                    ParserStepResult::Continue {
+                        name,
+                        description,
+                        slice,
+                    }
+                }
+                context::ParseResult::Child {
+                    step,
+                    back,
+                    child_name,
+                    parent_name,
+                    slice,
+                    ..
+                } => {
+                    self.stack.push(back);
+                    self.stack.push(step);
+                    ParserStepResult::Child {
+                        child_name,
+                        parent_name,
+                        slice,
+                    }
+                }
+            };
+            self.parseables.update();
+            result
+        } else {
+            ParserStepResult::Done
+        }
+    }
+    ///step the parser
+    pub fn tree<'a>(&'a self) -> &'a ParsableVec {
+        &self.parseables
+    }
 
-//                 },
-//                 context::ParseResult::Continue {
-//                     description,
-//                     step,
-//                     slice,
-//                 } => {
-//                     stack.push(step);
-//                 }
-//                 context::ParseResult::Child {
-//                     child,
-//                     step,
-//                     back,
-//                     slice,
-//                 } => {
-//                     stack.push(back);
-//                     stack.push(step);
-//                 }
-//             }
-//         } else {
-//             ParserStepResult::Done
-//         }
-//     }
-// }
+    pub fn get_source<'a>(&'a self) -> &'a ParserSource {
+        &self.source
+    }
 
-// impl ParserDebug {
-//     ///step the parser
-//     pub fn step(&mut self) -> ParserStep {
-//         match self.generator.resume() {
-//             genawaiter::GeneratorState::Yielded(step) => step,
-//             genawaiter::GeneratorState::Complete(step) => {
-//                 self.is_generator_done = true;
-//                 step
-//             }
-//         }
-//     }
-
-//     pub fn next(&mut self) -> Option<ParserStep> {
-//         if self.is_generator_done {
-//             None
-//         } else {
-//             Some(self.step())
-//         }
-//     }
-
-//     pub fn tree<'a>(&'a self) -> RwLockReadGuard<'a, Vec<Box<dyn Paragraph>>> {
-//         self.parser.tree.read()
-//     }
-
-//     pub fn get_source<'a>(&'a self) -> RwLockReadGuard<'a, ParserSource> {
-//         self.parser.source.read()
-//     }
-
-//     pub fn into_data(self) -> ParserData {
-//         ParserData {
-//             source: self.parser.source.into_inner(),
-//             tree: self.parser.tree.into_inner(),
-//         }
-//     }
-// }
+    pub fn into_data(self) -> ParserData {
+        ParserData {
+            source: self.source,
+            tree: self.parseables,
+        }
+    }
+}

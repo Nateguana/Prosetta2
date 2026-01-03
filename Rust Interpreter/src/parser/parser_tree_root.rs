@@ -63,7 +63,7 @@ impl ParserTreeRoot {
                 let (index, ret) = co.result_root_child(
                     child,
                     Title::parse,
-                    move |s: &mut Self, cot,  source| s.step(cot, source, parser_stepper, has_title),
+                    move |s: &mut Self, cot, source| s.step(cot, source, parser_stepper, has_title),
                     slice,
                 );
 
@@ -71,10 +71,16 @@ impl ParserTreeRoot {
 
                 ret
             } else {
-                todo!()
+                // todo!()
+                ParseResult::Match {
+                    name: self.name(),
+                    pos: paragraph_index,
+                    return_type: ReturnType::Null,
+                }
             }
         } else {
             ParseResult::Match {
+                name: self.name(),
                 pos: paragraph_index,
                 return_type: ReturnType::Null,
             }
